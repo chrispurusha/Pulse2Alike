@@ -1,0 +1,9 @@
+.DS_Store
+**/xcuserdata/
+build/
+tools/dcocheck
+tools/midisend
+tools/play
+tools/filtercheck
+tools/p2dump
+tools/p2render

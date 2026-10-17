@@ -1,0 +1,46 @@
+# p2Draw.c / p2Draw.h - notes
+
+The editor panel, drawn through SynthLib's renderer with SynthEdit's look: dark grey, section headings with a
+rule, `render_dial()` for continuous controls, and `draw_button()` for lists, which step on each click. It is
+hosted by SynthLib's `synthlibPanelView`, as MidiSyncTool's and GenBridge's panels are.
+
+## 1. Dragging a dial
+As SynthEdit and G2 Alike do it. A press on a dial grabs it, and SynthLib's panel view hides the pointer and
+holds it still. The raw movement turns the dial, at `dial_drag_pixels_for_full_range()` per full range, which
+is SynthLib's shared policy, so Shift drags slowly. On release the pointer reappears where it was. The value
+runs unrounded while it moves, so a continuous parameter (cutoff, resonance) moves smoothly.
+
+## 2. Value menus
+A list control (the oscillator shapes, the filter type) opens SynthLib's context menu under itself, as
+SynthEdit's value menus and MidiSyncTool's selectors do. While the menu is open, a click belongs to it, either
+choosing or dismissing, never to the control underneath.
+
+## 3. Pages and layout
+Page tabs across the top (SynthEdit's `draw_button`, green for the current page), then the page's sections
+flowing left to right and wrapping onto a new row when the next would not fit. Layout is recomputed every
+frame and every press, from the page table alone, so a page needs no coordinates of its own. Value menus
+open in columns of 8 rows (the 32 modulation targets as 4 columns), so a long list fits under a control in
+the lower row instead of scrolling.
+
+## 4. Patches: Prev, Next, Load...
+As SynthEdit does it. `< Prev` and `Next >` walk the `.syx` files of the current patch's folder in name order,
+which for the instrument's backup is slot order (`NNN Name.syx`). `Load...` opens SynthLib's in-window file
+browser there. With no patch loaded yet, the folder is `iCloud Drive/Patches/Pulse2`, where `tools/p2dump` writes
+the backup. The browser is modal and drawn last. While it is open, every press, release, hover and scroll is
+its own: press and release map to its mouse-down and click.
+
+The patch name is only what the panel was last told. A host project reopened later shows "(no patch loaded)",
+though every parameter is restored. The sound is in the parameters, not in the file.
+
+## 5. Menus and popups
+The menu bar (p2Menu.c) sits across the top of the panel; everything else is 20 units lower. Menus, the file
+browser and the dialogues all go through SynthLib's synthlibPopups, as in G2 Alike's editor: a press is offered
+to them front to back first, and a press anywhere else while a menu is open only closes it. A menu item is chosen
+on the RELEASE (contextMenu acts on mouse-up), which is why p2_draw_release returns an edit: a list control's
+value menu is chosen there too. Keys come from SynthLib's panel view once a click has given it the keyboard.
+
+## 6. The name field
+The sound's name, beside Prev/Next/Load, edited in place as SynthEdit edits a program name: a click starts it,
+Return or a click elsewhere keeps it, Escape drops it. Typing is upper-cased and stops at 14 characters, which
+is the dump's name field and how the instrument's own sounds are named. The name goes to a file only at the
+next save. The file the sound came from is shown greyed after it.

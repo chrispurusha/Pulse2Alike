@@ -1,0 +1,10 @@
+#!/bin/zsh
+# Builds tools/p2render: the plug-in's engine without its editor, for offline renders.
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+SL="$HERE/SynthLib"
+clang -O2 -Wall -Wextra -DP2_NO_EDITOR -DSYNTHLIB_PLUGIN_BUILD=1 -I"$HERE/src" -I"$HERE/plugin" -I"$SL/plugin" -I"$SL/src" \
+      -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include" \
+      "$HERE/tools/p2render.c" "$HERE/plugin/p2Plugin.c" "$HERE/plugin/p2Params.c" "$HERE/plugin/p2Patch.c" \
+      "$HERE/src/p2Dco.c" "$HERE/src/p2Filter.c" "$HERE/src/p2Env.c" "$HERE/src/p2Lfo.c" "$HERE/src/p2Drive.c" "$SL/plugin/synthlibLog.c" \
+      -o "$HERE/tools/p2render"

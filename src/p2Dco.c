@@ -1,0 +1,141 @@
+/*
+ * Pulse2Alike - the digitally controlled oscillator.
+ *
+ * Copyright (C) 2026 Chris Turner <chris_purusha@icloud.com>
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ */
+// Notes: Docs/code-notes/p2Dco.md - "// notes §k" refers there.
+
+#include <math.h>
+
+#include "p2Dco.h"
+
+int32_t p2_pitch_from_midi_note(double note) {
+    return (int32_t)lround(note * P2_PITCH_PER_SEMITONE) + P2_PITCH_MIDI_ZERO;
+}
+
+// notes §2
+static uint32_t base_period(int32_t semitoneInOctave) {
+    double hz = 440.0 * pow(2.0, ((double)semitoneInOctave - 105.0) / 12.0);
+
+    return (uint32_t)floor((2.0 * P2_DCO_CLOCK_HZ) / hz);
+}
+
+// notes §3
+uint32_t p2_dco_period_ticks(int32_t pitch) {
+    if (pitch < 0) {
+        pitch = 0;
+    } else if (pitch > P2_PITCH_MAX) {
+        pitch = P2_PITCH_MAX;
+    }
+    int32_t  semitone = pitch / P2_PITCH_PER_SEMITONE;
+    int32_t  fraction = pitch % P2_PITCH_PER_SEMITONE;
+    int32_t  note     = semitone % 12;
+    int32_t  octave   = semitone / 12;
+    uint32_t base     = base_period(note);
+    uint32_t slope    = base - base_period(note + 1);
+
+    return (base - ((slope * (uint32_t)fraction) >> 8)) >> (octave + 1);
+}
+
+// notes §4
+uint32_t p2_dco_pulse_ticks(uint32_t periodTicks, int32_t width) {
+    if (width <= 0) {
+        return 0;
+    }
+
+    if (width > P2_WIDTH_MAX) {
+        width = P2_WIDTH_MAX;
+    }
+    uint32_t shape = (uint32_t)(((width + 0x200) * width) >> 15);
+
+    return (shape * (periodTicks >> 12)) >> 4;
+}
+
+void p2_dco_set(tP2Dco * dco, int32_t pitch, int32_t width, tP2Shape shape, double sampleRate) {
+    uint32_t period = p2_dco_period_ticks(pitch);
+
+    dco->increment     = (P2_DCO_CLOCK_HZ / (double)period) / sampleRate;
+    dco->pulseFraction = (double)p2_dco_pulse_ticks(period, width) / (double)period;
+    dco->shape         = shape;
+}
+
+// notes §5
+static double poly_blep(double t, double dt) {
+    if (t < dt) {
+        t /= dt;
+        return (t + t) - (t * t) - 1.0;
+    }
+
+    if (t > (1.0 - dt)) {
+        t = (t - 1.0) / dt;
+        return (t * t) + (t + t) + 1.0;
+    }
+    return 0.0;
+}
+
+// notes §6
+void p2_dco_restart(tP2Dco * dco) {
+    dco->phase = 0.0;
+    dco->held  = false;
+}
+
+float p2_dco_next(tP2Dco * dco) {
+    double t  = dco->held ? 0.999999 : dco->phase;     // notes §8: a held slave sits at the end of its cycle
+    double dt = dco->held ? 0.0 : dco->increment;
+    double out;
+
+    switch (dco->shape) {
+        case eP2ShapeSaw:
+            out = ((2.0 * t) - 1.0) - poly_blep(t, dt);
+            break;
+
+        case eP2ShapeTriangle:
+            out = (t < 0.5) ? ((4.0 * t) - 1.0) : (3.0 - (4.0 * t));
+            break;
+
+        case eP2ShapeApw:
+        case eP2ShapePulse:
+        default:
+        {
+            double width = dco->pulseFraction;
+
+            if ((dco->shape == eP2ShapeApw) && (dco->cycle & 1)) {
+                width = 1.0 - width;
+            }
+            double rise  = 1.0 - width;
+            double fall  = t - rise;
+
+            if (fall < 0.0) {
+                fall += 1.0;
+            }
+            out  = (t >= rise) ? 1.0 : -1.0;
+            out += poly_blep(fall, dt) - poly_blep(t, dt);
+            break;
+        }
+    }
+    dco->phase  += dt;
+    dco->wrapped = false;
+
+    if (dco->phase >= 1.0) {
+        if (dco->syncHold) {
+            dco->held  = true;
+            dco->phase = 0.999999;
+        } else {
+            dco->phase  -= 1.0;
+            dco->wrapped = true;
+        }
+        dco->cycle++;
+    }
+    return (float)out;
+}
