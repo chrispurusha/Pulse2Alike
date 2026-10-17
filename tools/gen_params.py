@@ -7,7 +7,8 @@ ROUTE3=['MIX','LEVEL2','VCF','DRIVE']
 OFFON=['OFF','ON']
 GLIDE=['OFF','NORM','FNGR','FNON','FOFF']
 TRIG=['SNG1','SNG2','RET1','RET2','RET3']
-LOOP=['OFF','ON','HOLD']
+LOOP=['OFF','A-D','D-D']
+PHASE=['FREE','RAND','0','90','180','270']
 LFOSHAPE=['SINE','TRI','SAW','SQR','S&H','sSIN','sTRI','sSAW','sSQR','sS&H']
 FTYPE=['LP24','LP12','BP12','HP12']
 CURVE=['NONE','TUBE','FUZZ','FX']
@@ -29,7 +30,7 @@ add('Osc2Shape','Osc 2 Shape','Shape',0,4,1,'list',SHAPE2)
 add('Osc2Width','Osc 2 Pulse Width','Width',0,127,64)
 add('Osc2Semitone','Osc 2 Semitone','Semi',-48,48,0)
 add('Osc2Level','Osc 2 Level','Level',0,127,0)
-add('Volume','Volume','Volume',0,127,100)
+add('Volume','Volume','Volume',0,127,100,midi='7')       # CC 7 is the sound's volume on the instrument
 add('Cutoff','Cutoff','Cutoff',0,127,80,cont=True)
 add('Resonance','Resonance','Reso',0,127,0,cont=True)
 add('FilterType','Filter Type','Type',0,3,0,'list',FTYPE)
@@ -65,10 +66,10 @@ for e,n in (('EnvF','Filter Env'),('EnvA','Amp Env')):
     add(e+'Trigger',n+' Trigger','Trigger',0,4,0,'list',TRIG)
 add('Lfo1Speed','LFO 1 Speed','Speed',0,127,64)
 add('Lfo1Shape','LFO 1 Shape','Shape',0,9,0,'list',LFOSHAPE)
-add('Lfo1Phase','LFO 1 Phase','Phase',0,5,0)
+add('Lfo1Phase','LFO 1 Phase','Phase',0,5,0,'list',PHASE)
 add('Lfo2Speed','LFO 2 Speed','Speed',0,127,64)
 add('Lfo2Delay','LFO 2 Delay','Delay',0,127,0)
-add('Lfo2Phase','LFO 2 Phase','Phase',0,5,0)
+add('Lfo2Phase','LFO 2 Phase','Phase',0,5,0,'list',PHASE)
 for m in range(1,9):
     add('Mod%dSource'%m,'Mod %d Source'%m,'Source',0,24,0,'list',SRC)
     add('Mod%dAmount'%m,'Mod %d Amount'%m,'Amount',0,127,64,'bi')
@@ -93,6 +94,13 @@ add('Master','Master Volume','Master',0,127,127)
 # notes §5: program change and bank select (CC 32), as the instrument takes them; never saved
 add('Program','Program','Program',0,127,0,flags='SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE')
 add('Bank','Bank Select','Bank',0,127,0,flags='SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE',midi='32')
+# notes §6: the performance controls, as a host delivers them (IMidiMapping); played, never saved
+PERF='SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE'
+add('PitchBend','Pitch Bend','Bend',-1,1,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_PITCH_BEND')
+add('ModWheel','Mod Wheel','ModWhl',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_MOD_WHEEL')
+add('Pressure','Pressure','Press',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_AFTERTOUCH')
+add('Breath','Breath','Breath',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_BREATH')
+add('Sustain','Sustain Pedal','Sustain',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_SUSTAIN')
 
 
 ROWS = ['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1Level',

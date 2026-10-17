@@ -18,7 +18,8 @@ CC = dict(osc1_shape=34, osc1_pw=35, osc1_semi=70, osc1_detune=71, osc1_keytrack
           drive=76, drive_curve=77, pan=59, volume=57, vca_velocity=58,
           envf_a=14, envf_d=15, envf_s=16, envf_r=17, envf_loop=74, envf_trigger=29,
           enva_a=18, enva_d=19, enva_s=20, enva_r=21, enva_loop=75, enva_trigger=31,
-          glide_rate=5, glide_mode=62, arp_active=79, unison_detune=102, osc1_fade=103, osc2_fade=104)
+          glide_rate=5, glide_mode=62, arp_active=79, arp_range=80, arp_tempo=81, arp_clock=82, arp_mode=83, arp_step=84,
+          arp_swing=85, arp_delay=86, arp_length=87, arp_accent=88, unison_detune=102, osc1_fade=103, osc2_fade=104)
 
 CC_LFO1_SPEED = 24
 CC_LFO1_SHAPE = 25
@@ -76,3 +77,31 @@ def capture(path, seconds, rate=96000):
 if __name__ == '__main__':
     set_sound()
     print('test sound sent')
+
+
+# Sound bytes with no CC (the LFO phases), by row in the instrument's parameter order
+SOUND_BYTE = dict(lfo1_phase=81, lfo2_phase=82)
+P2DUMP = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'p2dump')
+
+
+def set_bytes(values):
+    """Sets sound bytes no CC reaches: reads the edit buffer back, changes them, and sends it to the EDIT BUFFER
+    (7F 00, whatever the reply said) - a dump with a slot number would be stored to flash."""
+    import glob, tempfile
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run([P2DUMP, PORT, d, 'edit'], check=True, capture_output=True)
+        dump = bytearray(open(glob.glob(os.path.join(d, 'edit*.syx'))[0], 'rb').read())
+    if len(dump) != 137 or dump[0] != 0xF0 or dump[4] != 0x10:
+        raise RuntimeError('no sound dump from the edit buffer')
+    dump[5], dump[6] = 0x7F, 0x00
+    for name, v in values.items():
+        dump[7 + SOUND_BYTE[name]] = v
+    dump[135] = sum(dump[1:135]) & 0x7F
+    send(dump.hex())
+
+
+def set_step_bytes(values):
+    """The 16 arpeggiator steps (rows 90-105), through the edit buffer like set_bytes."""
+    for i, v in enumerate(values):
+        SOUND_BYTE['arp_step_%d' % i] = 90 + i
+    set_bytes({'arp_step_%d' % i: v for i, v in enumerate(values)})

@@ -16,7 +16,7 @@ SRC = {'lfo1': 1, 'lfo2': 4}
 TGT_CUTOFF = 10
 
 
-def take(outdir, tag, seconds, source='lfo1', speed=64, shape=1, amount=96, cutoff=64, extra=None):
+def take(outdir, tag, seconds, source='lfo1', speed=64, shape=1, amount=96, cutoff=64, extra=None, phase=None):
     ch = 0xB0 | (p2rig.CHANNEL - 1)
     p2rig.set_sound(dict(osc1_level=0, resonance=127, cutoff=cutoff, volume=40, **(extra or {})))
     speed_cc, shape_cc = (p2rig.CC_LFO1_SPEED, p2rig.CC_LFO1_SHAPE) if source == 'lfo1' else (26, None)
@@ -25,6 +25,8 @@ def take(outdir, tag, seconds, source='lfo1', speed=64, shape=1, amount=96, cuto
     if shape_cc is not None:
         items.append(p2rig.hexmsg(ch, shape_cc, shape))
     p2rig.send(*items)
+    if phase is not None:
+        p2rig.set_bytes({'%s_phase' % source: phase})
     time.sleep(0.3)
     path = os.path.join(outdir, tag + '.wav')
     cap = p2rig.capture(path, seconds + 1.5, RATE)
@@ -75,6 +77,16 @@ def main():
         for a in (64, 68, 72, 80, 88, 96, 112, 127, 56, 32, 0):
             g, s = steps_track(take(outdir, 'amount_%d' % a, 3.0, speed=40, shape=1, amount=a))
             print('  %3d %.2f' % (a, np.percentile(s, 99) - np.percentile(s, 1)))
+    elif what == 'phase':
+        # the Phase settings (FREE, RAND, 0, 90, 180, 270): where the LFO starts at a note, and which way it goes
+        names = ['FREE', 'RAND', '0', '90', '180', '270']
+        print('LFO 1 at speed 40, amount +32: the cutoff (steps from the mean) every 50 ms from the note')
+        for sh, shn in ((2, 'SAW'), (1, 'TRI'), (3, 'SQR')):
+            for ph in ((2, 3, 4, 5, 0, 0) if sh == 2 else (2, 3)):
+                g, s = steps_track(take(outdir, 'phase_%s_%d' % (shn, ph), 1.6, speed=40, shape=sh, phase=ph))
+                at = np.arange(0.0, 1.2, 0.05)
+                v = np.interp(g[0] + at, g, s) - np.median(s)
+                print('  %-3s %-4s: %s' % (shn, names[ph], ' '.join('%+.0f' % x for x in v)))
     elif what == 'lfo2':
         print('LFO 2 (its own shape): speed -> Hz, and delay')
         for sp in (16, 40, 64, 96):

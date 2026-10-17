@@ -469,3 +469,122 @@ H3, H5 relative to the fundamental.
   weak, FUZZ's even harmonics 10 dB weak.
 - **Engine level:** at identical settings (saw, Volume 40) the engine is **7.9 dB below** the instrument,
   −22.0 against −14.1 dBFS, even after the +10 dB output change.
+
+## 2026-10-17 - the paraphonic voice fade (`fade/`)
+
+PARA-8; note 36 held throughout (the amp envelope stays open), note 61 played for 1 s (its fundamental is not one
+of 36's harmonics: with note 60 the measurement read the held note's 4th harmonic). Amp envelope Attack 60.
+- **With the amp envelope's Release at 0, Fade does nothing:** the voice stops at once at every setting. The
+  fade is "done by ENV A", as the manual says.
+- **Release 70:** Fade 0-64 stop at once; 83 is gone in about 0.1 s; 100 falls 25 dB in the first 0.1 s; 127
+  falls about 19 dB a second (2 s to −40 dB, a release stage near 64.5).
+- **Release 40:** Fade 100 and 127 stop at once.
+- The fade in does not change with Fade.
+- The CCs (103/104) are as the manual lists them, and the loop values are OFF / A-D / D-D as the
+  manual does (the plug-in had them wrong).
+
+## 2026-10-17 - envelope loops (`loop/`)
+
+Amp envelope A 40, D 50, R 40, a 4 s hold, 50 ms steps.
+- **A-D** (S 64): attack to full, decay to the sustain level (−13 dB), a wait there, then attack again from the
+  sustain level; peaks at 0.35, 1.45, 2.5, 3.55 s: a 1.05 s cycle.
+- **D-D:** decay to the sustain level, then up again to full along the decay's own curve, then down: S 32 swings
+  between −30 dB and full, S 64 between −13 and full, S 96 between −5 and full; periods 1.9, 1.75, 1.6 s. The
+  manual's description (full to zero, Sustain the speed) does not match.
+
+## 2026-10-17 - APW, corrected (`osc/apw_48_pw*`)
+
+Folding the APW captures over two cycles (rather than reading harmonic levels) shows the real shape: the first
+cycle a plain 50% square at every width; the second high on [½ − w, ½] and [½ + w, 1]. PW 127 is a square; low
+widths a square an octave down. P011 PLAIN ARP (APW at PW 63, LFO on the width) is almost all the octave below
+on the instrument, which the old model (w / 1 − w alternating) could not make: 15 dB off in the sustain.
+
+## 2026-10-17 - LFO phase and direction (`lfo/phase_*`)
+
+LFO 1 into the cutoff of the self-oscillating filter, speed 40 (0.55 s) and slow shapes at 60 (1.0 s); the
+Phase byte set through an edit-buffer dump (no CC reaches it). The first 0.2 s of each track is the filter's
+oscillation starting and is ignored.
+- **Phase:** the instrument lists FREE, RAND, 0, 90, 180, 270. SAW at 0 starts at the bottom of its ramp; 90, 180
+  and 270 bring its reset forward by a quarter, half and three quarters of a period; FREE resets nothing.
+- **Direction:** SAW rises with a positive amount. The fast SINE, TRI and SQR start downward (TRI at its
+  midpoint going down, minimum a quarter period in; SQR low first). The slow sTRI and sSQR start upward, sSAW
+  rises; sSIN came out about a fifth of a period early.
+- This is the pulse-width "polarity" left open earlier: the triangle used then was a fast one, running the
+  other way to the model.
+- P011 runs LFO 1 at FREE with a 24 s period, so its capture caught the LFO at an unknown phase: its 15 dB sustain
+  difference cannot be read as a model error until it is captured at a fixed phase.
+
+## 2026-10-17 - output level matched
+
+The rig's Fireface inputs are at +4 dBu (line), which is how the instrument is heard here, so the captures' dBFS
+is the target. The output gain is now 3.926 (+7.9 dB), which puts the engine's saw at Volume 40 on the
+instrument's −14.1 dBFS.
+
+## 2026-10-17 - osc 3's control routings (`osc3/`)
+
+Osc 3 a square at note 24, 24 semitones down (about 8 Hz), so its effect flips between two states.
+- **VCF:** on the self-oscillating filter (cutoff 64), each edge of the square kicks the cutoff (up on the rise,
+  down on the fall) and it decays back to the base in about 30 ms: the path is AC coupled, near 14 Hz. The kick
+  is about 56 steps at level 127 and 12 at level 32, which is the oscillator level curve: 28 steps per unit of
+  osc 3. (Folding the track on osc 3's nominal period, or taking percentiles, both misread this as a step.)
+- **LEVEL2** (osc 2 saw at level 64): the two states are 7.9 dB apart at level 32 (level 64 +- level 32 in level
+  units predicts 8.1), and one state is silent from level 64 up. Each state sags towards the middle: the same
+  coupling.
+
+## 2026-10-17 - P011 taken apart (`p011/`)
+
+P011 (APW, LP12 at cutoff 11, envelope amount +23, keytrack 95, velocity 96, LFO 1 on the width) was 13 dB off in
+the sustain with its LFO phase fixed. Taken apart on the instrument and the engine, by CC on the edit buffer:
+- **Base cutoff alone, and with keytracking:** the spectra agree within 1-2 dB, so the low cutoff and keytracking
+  are right. The engine is about 5.5 dB loud at this cutoff (the open-filter saw matches exactly): the filter's
+  level near the bottom of its range is still to settle.
+- **Adding velocity** (envelope amount 0): the instrument brightens a little (+2.9 dB), the engine a lot. A
+  render matched the instrument with velocity worth about 9 steps where the model gave 25.
+- **Why:** velocity scales the filter envelope rather than adding to the cutoff (the envelope sustains at 47 here:
+  0.37 × 25 ≈ 9). The earlier velocity captures had the envelope at full, where the two are the same.
+- **The pulse width in P011** (filter fully open, no envelope, velocity or keytracking; 6 s): on the instrument the
+  APW starts wide and narrows steadily for the whole take; the engine started narrow and widened. The slow
+  triangle starts at its top and runs down, not at its middle running up (the reading from the self-oscillating
+  filter, whose start is uncertain, had it the other way). The slow sine and square likewise start at their top.
+- **The slow LFO's rate** (sTRI, `lfo/slow_rate_*`): speed 4 0.0229 Hz, 16 0.0763, 32 0.2136, 48 0.6104,
+  64 1.6479, 96 9.979: from 0.11 to 0.24 of the fast law, not the fixed 0.197. P011 runs speed 4 (44 s, not 24 s).
+- **Phase reset timing:** two identical takes of P011 (sound sent, then the note) started the slow LFO at
+  different points, so the instrument does not reset it at that note-on. When it does is still to find.
+- **What restarts an LFO** (the reset routine, then two takes): the filter envelope's trigger, by its own Trigger
+  mode. LFO 2 restarts there, with its delay; LFO 1 only with a fast shape. The slow shapes run free, so the two
+  P011 takes (sTRI) could not start at the same point.
+- **Checked on the instrument** (`lfo/reset_*`, `lfo/legato_*`; fast TRI at phase 90 on the self-oscillating
+  filter): two identical takes now trace the same triangle; a legato second note with the filter envelope on SNG1
+  leaves the LFO running, and on RET1 restarts it.
+
+## 2026-10-17 - the filter's level at low cutoff, and the pulse's level (`lowcut/`, `p011/`)
+
+- **Level against cutoff** (saw at note 36, LP12 and LP24, resonance 0, cutoffs 0-127): the engine follows the
+  instrument within about 1 dB at every cutoff. P011's 5.5 dB was not the filter.
+- **P011 by parts:** Amp Velocity accounted for 1.7 dB (the instrument moves 9.0 dB, the engine 10.7) and
+  resonance for nothing. The rest, 4 dB, was the oscillator: APW measured 4.2 dB below the engine's at every
+  width, PWM 4.4 dB, while the saw and triangle agree (`osc/` captures against renders). Pulses are now 0.61.
+
+## 2026-10-17 - osc 3 to DRIVE (`drive_route/`)
+
+TUBE with a quiet saw (osc 1 level 30, note 72) changes level steeply with Drive: 0 −37.4, 8 −32.4, 16 −30.0,
+24 −28.8, 32 −28.2, 48 −27.7, 64 −27.5 dB. With osc 3 an 8 Hz square on DRIVE (Drive 0), the peak after each edge
+read through that sweep is a kick of 14.6 / 27.4 / 59.7 drive units at osc 3 level 32 / 64 / 127; over the
+oscillator level curve, about 60 per edge, so 30 per unit of osc 3. The baseline with DRIVE routing sat near
+Drive 8 at every level (−32.5 dB), which is not yet explained.
+
+## 2026-10-17 - osc 3's FB (`fb/`)
+
+- **With a saw** (osc 1 level 64, filter open, drive off): the level FALLS as FB rises (−19.8, −22.0, −25.2,
+  −27.4, −28.3 dB at 0/32/64/96/127) and the tone brightens a little: negative feedback. The engine had it positive.
+  A gain of 5.7 × osc 3's level matches within 1.4 dB.
+- **Alone** (no oscillators, cutoff 64): the instrument sings from FB 64, near 950 Hz, quietly (−42 to −36 dB). The
+  engine at 5.7 does not; at 9.0 it sings from 96, at 758 Hz and much louder, and spoils the saw case. The
+  instrument's feedback is stronger near the filter's corner than in its passband.
+
+## 2026-10-17 - the performance controls (`perf/`)
+
+On the instrument: bend at full throw +2.00 and −11.99 semitones with Bend Up 2 / Down 12 (the engine's law); the
+mod wheel and channel pressure as mod sources on the cutoff at amount +32 raise it 15.4/31.0 and 15.2/30.6 steps
+at half and full (linear; the engine gives 16.1/32, within a step); the sustain pedal holds a released note until
+it is lifted. As modelled.

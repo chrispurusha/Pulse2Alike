@@ -27,7 +27,17 @@ typedef struct {
     uint32_t random;     // xorshift state
 } tP2Lfo;
 
+typedef enum {
+    eP2LfoPhaseFree = 0,       // never reset
+    eP2LfoPhaseRandom,         // anywhere, at each note
+    eP2LfoPhase0,
+    eP2LfoPhase90,
+    eP2LfoPhase180,
+    eP2LfoPhase270
+} tP2LfoPhase;
+
 double p2_lfo_hz(double speed);
+void p2_lfo_note(tP2Lfo * l, tP2LfoPhase phase);     // notes §3: a note's start, as the Phase setting says
 // One step of dt seconds; shape is the instrument's list (SINE, TRI, SAW, SQR, S&H, then the slow five).
 // Returns -1..+1.
 double p2_lfo_step(tP2Lfo * l, double dt, double speed, int shape);

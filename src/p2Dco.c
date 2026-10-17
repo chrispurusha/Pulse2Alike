@@ -84,6 +84,29 @@ static double poly_blep(double t, double dt) {
     return 0.0;
 }
 
+// A step at position `edge` of a two-cycle period, seen from u (both 0..2): poly_blep's correction, or 0 when far
+static double edge_blep(double u, double edge, double dt) {
+    double d = u - edge;
+
+    d += (d < 0.0) ? 2.0 : 0.0;
+
+    if (d < dt) {
+        return poly_blep(d, dt);
+    }
+    return (d > (2.0 - dt)) ? poly_blep(d - 1.0, dt) : 0.0;
+}
+
+// notes §7: over two cycles - a plain square, then high on [1.5 - w, 1.5) and [1.5 + w, 2)
+static double apw(double u, double w, double dt) {
+    double out = ((u < 0.5) || ((u >= (1.5 - w)) && (u < 1.5)) || (u >= (1.5 + w))) ? 1.0 : -1.0;
+
+    out -= edge_blep(u, 0.5, dt);           // falls
+    out -= edge_blep(u, 1.5, dt);
+    out += edge_blep(u, 1.5 - w, dt);       // rises
+    out += edge_blep(u, 1.5 + w, dt);
+    return out;
+}
+
 // notes §6
 void p2_dco_restart(tP2Dco * dco) {
     dco->phase = 0.0;
@@ -105,14 +128,13 @@ float p2_dco_next(tP2Dco * dco) {
             break;
 
         case eP2ShapeApw:
+            out = apw(t + ((dco->cycle & 1) ? 1.0 : 0.0), dco->pulseFraction, dt);
+            break;
+
         case eP2ShapePulse:
         default:
         {
             double width = dco->pulseFraction;
-
-            if ((dco->shape == eP2ShapeApw) && (dco->cycle & 1)) {
-                width = 1.0 - width;
-            }
             double rise  = 1.0 - width;
             double fall  = t - rise;
 

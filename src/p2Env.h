@@ -33,7 +33,14 @@ typedef struct {
     double      level;         // 0..1, the generator\'s own level (the VCA curve is applied after)
     double      phase;         // attack: 0..1 along the curve
     double      attackFrom;    // the level the attack started from (a retrigger mid-release)
+    bool        rising;        // D-D loop: decaying back up towards full
 } tP2Env;
+
+typedef enum {
+    eP2LoopOff = 0,
+    eP2LoopAttackDecay,        // A-D: attack again from the sustain level, once decay has reached it
+    eP2LoopDecayDecay          // D-D: between full and the sustain level, both ways at the decay rate
+} tP2EnvLoop;
 
 double p2_env_attack_seconds(double value);     // to −1 dB
 double p2_env_decay_seconds(double value);      // to −40 dB; release uses the same law
@@ -45,6 +52,6 @@ void p2_env_reset(tP2Env * e);
 void p2_env_gate_on(tP2Env * e);
 void p2_env_gate_off(tP2Env * e);
 // One step of dt seconds with the four dial values (0..127); returns the level.
-double p2_env_step(tP2Env * e, double dt, double attack, double decay, double sustain, double release);
+double p2_env_step(tP2Env * e, double dt, double attack, double decay, double sustain, double release, tP2EnvLoop loop);
 
 #endif // __P2_ENV_H__

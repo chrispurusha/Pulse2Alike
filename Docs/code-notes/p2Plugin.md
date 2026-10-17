@@ -111,7 +111,9 @@ These follow the instrument's behaviour as far as studied. M-DELAY's timing and 
 confirmed by capture (todo).
 
 ## 19. Output gain and Master
-The final gain is 1.58 (+10 dB on the first version's 0.5). Master Volume (default 127) is the plug-in's own
+The final gain is 3.926: the instrument's own level, as captured through the rig (Fireface inputs at +4 dBu, the
+same path the instrument is heard through). The same saw at Volume 40 measured −14.1 dBFS on the instrument and
+−22.0 from the engine at the previous 1.58 (which was itself +10 dB on the first version's 0.5), so +7.9 dB. Master Volume (default 127) is the plug-in's own
 volume after everything else, with a squared taper (−12 dB at 64, −6 dB at 90). The sound's Volume stays as the
 instrument's.
 
@@ -149,5 +151,48 @@ name and file, and saves as before. A rename changes only the name; it reaches a
 ## 25. Osc 3's routing and FB
 As the manual describes them: MIX into the mixer; LEVEL2 adds osc 3 to osc 2's level; VCF adds it to the cutoff
 (audio-rate filter FM, the filter recomputed every oversampled sample); DRIVE adds it to the drive amount. Only MIX
-puts osc 3 in the mixer. The depths (32 cutoff steps, 64 drive units at full level) are not measured yet. FB, osc
-3's fifth shape, feeds the drive's output back into the mixer at osc 3's level; its depth is not measured either.
+puts osc 3 in the mixer. On the three control routings osc 3 is AC coupled (a high-pass near 14 Hz), measured with
+osc 3 as an 8 Hz square on the self-oscillating filter: each edge kicks the cutoff and it decays back in about
+30 ms. The kick is 28 cutoff steps per unit of osc 3 (+-1) at full level, scaled by the oscillator level curve
+(about 12 steps at level 32, 56 at 127 across a square's full swing). LEVEL2 measured: osc 2's level plus osc 3's
+level x osc 3, floored at zero (8 dB between the states at level 32, as that predicts; silent in one state from 64).
+DRIVE: 30 drive units per unit of osc 3 at full level, measured (findings, "osc 3 to DRIVE"). FB, osc 3's fifth
+shape, SUBTRACTS the drive's output from the mixer (negative feedback, findings "FB"), at 5.7 × osc 3's level:
+with a saw that matches the instrument's level within 1.4 dB at every FB. The instrument also sings with FB alone
+(from FB 64 at cutoff 64, near 950 Hz, quietly), which one gain cannot do: its feedback must be stronger near the
+filter's corner than in the passband. Not reproduced yet. A tiny noise seed lets a loop start, as the
+instrument's noise floor does.
+## 26. The paraphonic voice fade
+Measured (findings, "voice fade"): in PARA-8/PARA-4 a released voice dies away while the others hold the amp
+envelope open, as a release stage of R − 5.5 − 0.61 × (127 − Fade), R the amp envelope's Release: from two points
+(Fade 127 and 100 at R 70) and checked by the rest (Fade 83 almost at once, 64 and below at once, R 40 at once
+whatever Fade). Osc 2's part of a PARA-4 voice uses osc 2's Fade. The fade in is not changed by Fade.
+
+## 27. LFO phase at a note
+What restarts an LFO is the FILTER envelope's trigger, following that envelope's Trigger mode (SNG on a fresh note
+only, RET on every note). When it triggers, LFO 2 restarts at its Phase setting and its delay starts again, and
+LFO 1 does too if its shape is one of the fast five. The slow shapes (sSIN on) are never restarted by a note: they
+run free whatever their Phase, which is why two identical takes of P011 (sTRI) started at different points.
+## 28. Performance controls
+Pitch bend, the mod wheel, pressure (channel aftertouch), breath (CC 2) and the sustain pedal (CC 64) are hidden
+parameters mapped to their MIDI controls, which is how a VST3 host delivers them (the AU passes the same MIDI to
+the same parameters); they are played, never saved, and a program change or Init leaves them alone. Bend moves
+every oscillator by Bend Up or Bend Down semitones at full throw, and is also the PITCHBEND mod source (-1..+1).
+The wheel, pressure and breath are mod sources 0..1, and LFO1*MODW / LFO1*PRS are LFO 1 times the wheel or
+pressure. V.RELEASE is the last note-off's velocity. The pedal holds released notes until it is lifted (64 and
+up is down). CC 7 is the sound's Volume, as on the instrument. CONTROL-X (a global choosing a CC) is not wired.
+Depths are as the mod matrix's own; none of this is measured against the instrument yet.
+
+## 29. Filter velocity scales the envelope
+Velocity's term, (Filter Velocity − 64) × velocity / 128 steps, is added to the envelope amount's and the sum is
+multiplied by the filter envelope: velocity makes the envelope deeper or shallower, as the manual's "the overall
+modulation ... is the sum of both the ENV F Amount and Filter Velocity" says. With the envelope at full (the
+earlier velocity captures, sustain 127) it reads as a plain offset, which is how it was first modelled. P011 showed
+the difference: its envelope sustains at 47, where velocity adds about 9 steps, not 25 (findings, "P011").
+
+## 30. The pulse's level
+On the instrument a pulse is quieter than the saw against which the plug-in's output was set: with the filter
+open, PWM (width 64) measured 4.4 dB and APW 4.2 dB (every width) below what the engine made, while the saw and
+triangle agree. Every pulse in the mix (osc 1's PWM and APW, the unison and paraphonic voices, osc 2's PWM, osc 3's
+SQR on MIX) is scaled by 0.61. Only in the mix: osc 3's square as a control (LEVEL2, VCF, DRIVE) keeps its full
+size, which is what those depths were measured with.

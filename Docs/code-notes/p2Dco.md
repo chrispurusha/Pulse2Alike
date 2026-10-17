@@ -25,10 +25,11 @@ Provisional: an ideal saw, triangle and pulse. The phase resets at the main edge
 its last `pulseFraction` of the cycle. Polarity and shape come from captures (design §5.1).
 
 ## 7. APW
-Measured (findings, "APW"): the pulse width alternates between w and 1 − w on successive cycles, so the true
-period is two cycles, with a sub-octave that vanishes at PW 127 where both widths are about a half. The DCO
-counts its main edges and takes the complement on odd cycles. The edge corrections follow the width in use.
-
+Measured (findings, "APW, corrected"): over a two-cycle period, the first cycle is a plain 50% square whatever the
+width, and the second is high on [½ − w, ½] and [½ + w, 1], w from the PW law. At PW 127 (w = ½) that is an
+ordinary square; as the width falls it becomes a square an octave down, which is APW's character. The first
+model (the width alternating w / 1 − w) matched harmonic levels in places but not this shape, and missed a patch
+built on the octave below (P011) by 15 dB. Every edge is band-limited across the two-cycle period.
 ## 8. Sync
 Measured (findings, "sync"): with OSC3 SYNC>OSC2, osc 3 is the master, and every one of its cycles starts osc 2
 afresh. Osc 2 runs one cycle and then holds at the end of it until the next restart. So a slave tuned above

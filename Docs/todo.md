@@ -53,3 +53,8 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Drive: TUBE's H3 and FUZZ's even harmonics (needs captures at other frequencies: the curve has memory)
 - Measure osc 3's LEVEL2 / VCF / DRIVE depths and FB
 - Rotary dial drag (the siblings have it): SynthLib panel view must report uncaptured drag positions; then Controls > Rotary
+- Recapture P011 with LFO 1 at a fixed phase (it runs FREE, 24 s period) to settle its sustain difference
+- Drive, again: sines 50 Hz-5 kHz (and a two-tone) through EXT with the filter open, at stepped levels, for the curves' memory
+- Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127
+- Osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
+- FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?

@@ -9,7 +9,6 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Patch bar: Prev/Next step through iCloud Patches/Pulse2 in slot order; Load... opens the browser sized to the panel (rows fit 300 high), scrolls with wheel/trackpad, a chosen sound loads and every page follows
 - Menus on the MOD page open as 4 short columns and do not overflow the bottom
 - Program change in Live: AU (MIDI 0xC0) and VST3 (the kIsProgramChange parameter); bank select CC 32 first for P101+; the panel's patch name follows
-- Output now +10 dB; Master Volume (AMP page) at 127 = 0 dB
 - File menu in Live: Open, Load by Number, Save (confirm), Save As (type a name: needs the keyboard in Live's plug-in window), Init, Reload Library
 - Rename: click the name, type, Return; Escape cancels; then Save writes the new name (load it back to check)
 - Reopen a Live project: the name and file come back; Save still keeps the original dump's other bytes

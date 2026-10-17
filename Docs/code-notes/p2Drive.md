@@ -22,3 +22,6 @@ times the VCA at 40 and the plug-in's output gain.
 Not in the manual: it selects the return of an effects board planned for the instrument and never made. With no
 board, nothing comes back, and the instrument is silent (measured, with the external input and with the
 oscillators, at every Drive). Anomalies on: silent, as the instrument. Off: as NONE.
+
+The 0.888 is in the instrument's units and does not depend on the plug-in's output gain: when that gain rose to
+match the instrument (p2Plugin notes §19), the engine's level before the VCA was unchanged.

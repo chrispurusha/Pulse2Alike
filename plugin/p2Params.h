@@ -118,6 +118,11 @@ enum {
     kP2ParamMaster,
     kP2ParamProgram,
     kP2ParamBank,
+    kP2ParamPitchBend,
+    kP2ParamModWheel,
+    kP2ParamPressure,
+    kP2ParamBreath,
+    kP2ParamSustain,
     kP2ParamCount
 };
 

@@ -25,3 +25,12 @@ The times were measured at the output, so they convert to the generator through 
 
 ## 3. Retriggering
 A retrigger starts the linear attack from wherever the level is.
+
+## 5. Loops
+Measured on the amp envelope (findings, "envelope loops"). **A-D:** once decay has reached the sustain level,
+attack again from there (not from zero); the cycle at A 40, D 50, S 64 was 1.05 s. **D-D:** decay to the sustain
+level, then back up to full at the same decay rate, and so on. Sustain sets the lower level; the period hardly
+changes with it (1.9 / 1.75 / 1.6 s at S 32 / 64 / 96). The manual's "full scale to zero ... Sustain controls the
+speed" is not what the instrument does. A loop turns when the decay has arrived within 1/1024 of its target, which is why it waits at the sustain level
+before A-D's next attack. The threshold is from the captures: the three waits (A-D S 64, D-D S 32 and 96) each
+give 1/1000 or so, given the decay's own time constant.

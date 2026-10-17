@@ -103,16 +103,31 @@ def main():
         if not files:
             print('%03d: no .syx' % n); continue
         syx = open(files[0], 'rb').read()
+        # P2_FIXED_LFO=1: both LFOs' Phase at 0 (rows 81, 82), so a FREE LFO starts from a known point on both;
+        # the instrument gets the changed sound in its EDIT BUFFER (7F 00), never a slot
+        fixed = os.environ.get('P2_FIXED_LFO') == '1'
+        if fixed:
+            d = bytearray(syx[:137])
+            d[5], d[6] = 0x7F, 0x00
+            d[7 + 81] = d[7 + 82] = 2
+            d[135] = sum(d[1:135]) & 0x7F
+            syx = bytes(d)
+            files = [os.path.join(outdir, 'fixedlfo_%03d.syx' % n)]
+            open(files[0], 'wb').write(syx)
         sound = list(syx[7:7 + 128])
-        hw = os.path.join(outdir, 'hw_%03d.wav' % n)
+        tag = 'lfo0_' if fixed else ''
+        hw = os.path.join(outdir, 'hw_%s%03d.wav' % (tag, n))
         if not os.path.exists(hw):
-            sound_index = n - 1                 # the display's P001 is program 0 of bank 0
-            p2rig.send(p2rig.hexmsg(0xB0 | ch, 32, sound_index >> 7), p2rig.hexmsg(0xC0 | ch, sound_index & 0x7F), 'sleep:400')
+            if fixed:
+                p2rig.send(syx.hex(), 'sleep:400')
+            else:
+                # the display's P001 is program 0 of bank 0; 100 sounds to a bank (findings, "program change")
+                p2rig.send(p2rig.hexmsg(0xB0 | ch, 32, (n - 1) // 100), p2rig.hexmsg(0xC0 | ch, (n - 1) % 100), 'sleep:400')
             cap = p2rig.capture(hw, HOLD_S + TAIL_S + 1.2, RATE)
             time.sleep(0.8)
             p2rig.send(*p2rig.note_items(note, HOLD_S))
             cap.communicate()
-        p2 = os.path.join(outdir, 'p2_%03d.wav' % n)
+        p2 = os.path.join(outdir, 'p2_%s%03d.wav' % (tag, n))
         subprocess.run([os.path.join(HERE, 'p2render'), files[0], str(note), str(HOLD_S), str(TAIL_S), p2, '96000'],
                        check=True, capture_output=True)
         xh, rh = read(hw)

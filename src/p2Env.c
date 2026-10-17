@@ -39,6 +39,7 @@ static const double kSustainDb[17]        = {
 #define E_AT_MINUS_1_DB     (0.955)
 #define E_AT_MINUS_40_DB    (0.124)
 #define IDLE_BELOW          (1e-4)
+#define ARRIVED_WITHIN      (1.0 / 1024.0)     // notes §5: a loop turns when decay has got there
 
 // Value 0..127 to a position in the tables: points every 8 steps, the last one at 127.
 static double table_position(double value, int * i) {
@@ -113,6 +114,7 @@ void p2_env_reset(tP2Env * e) {
 }
 
 void p2_env_gate_on(tP2Env * e) {
+    e->rising     = false;
     e->stage      = eP2EnvAttack;
     e->attackFrom = e->level;
     e->phase      = 0.0;
@@ -125,7 +127,7 @@ void p2_env_gate_off(tP2Env * e) {
 }
 
 // notes §3
-double p2_env_step(tP2Env * e, double dt, double attack, double decay, double sustain, double release) {
+double p2_env_step(tP2Env * e, double dt, double attack, double decay, double sustain, double release, tP2EnvLoop loop) {
     switch (e->stage) {
         case eP2EnvAttack:
         {
@@ -142,10 +144,20 @@ double p2_env_step(tP2Env * e, double dt, double attack, double decay, double su
 
         case eP2EnvDecay:
         {
-            double s   = p2_env_sustain_level(sustain);
-            double tau = p2_env_decay_seconds(decay) / -log(E_AT_MINUS_40_DB);
+            double s      = p2_env_sustain_level(sustain);
+            double target = e->rising ? 1.0 : s;
+            double tau    = p2_env_decay_seconds(decay) / -log(E_AT_MINUS_40_DB);
 
-            e->level = s + ((e->level - s) * exp(-dt / tau));
+            e->level = target + ((e->level - target) * exp(-dt / tau));
+
+            // notes §5
+            if (fabs(e->level - target) < ARRIVED_WITHIN) {
+                if (loop == eP2LoopAttackDecay) {
+                    e->stage = eP2EnvAttack;
+                } else if (loop == eP2LoopDecayDecay) {
+                    e->rising = !e->rising;
+                }
+            }
             break;
         }
 
