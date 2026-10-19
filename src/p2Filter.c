@@ -36,10 +36,10 @@ static const double kFeedbackAt[][2]        = {
 
 // notes §3
 static const double kMix[eP2FilterCount][6] = {
-    {    0.0,  -0.0005, -0.0295,  0.1664,  -0.8047,  2.3955}, // LP24 - notes §6: the leak refitted deep
-    {0.00000, -0.00068, 0.00144, 1.54098, -0.28386, 0.16416}, // LP12   below the cutoff, x 0.902
-    { 0.0039,  -0.0118,  0.9137, -0.9947,   0.1210, -0.0345}, // BP12
-    {-0.0032,   0.4867, -1.0194,  0.4379,   0.2133, -0.1162}, // HP12
+    {-0.17298,  0.17199, 0.00074, -0.05179,  0.23875, 1.54050}, // LP24 - notes §7: fitted to the noise through the filter
+    { 0.00000, -0.00068, 0.00144,  1.54098, -0.28386, 0.16416}, // LP12 - the 10-19 leak refit, x 0.902
+    {  0.0039,  -0.0118,  0.9137,  -0.9947,   0.1210, -0.0345}, // BP12
+    { -0.0032,   0.4867, -1.0194,   0.4379,   0.2133, -0.1162}, // HP12
 };
 #define SHELF_ZERO_HZ    (250.2)
 #define SHELF_POLE_HZ    (179.3)
@@ -106,9 +106,10 @@ void p2_filter_reset(tP2Filter * f) {
 }
 
 void p2_filter_set(tP2Filter * f, double cutoff, double resonance, tP2FilterMode mode) {
-    f->G = tpt_gain(p2_filter_oscillation_hz(cutoff), f->sampleRate);
-    f->k = p2_filter_feedback(resonance);
+    f->G       = tpt_gain(p2_filter_oscillation_hz(cutoff), f->sampleRate);
+    f->k       = p2_filter_feedback(resonance);
     memcpy(f->mix, kMix[((int)mode >= 0) && (mode < eP2FilterCount) ? mode : eP2FilterLp24], sizeof(f->mix));
+    f->lowPass = (mode == eP2FilterLp24);   // notes §7: LP12 fits better with its leak after the saturation
 }
 
 static double one_pole(double * state, double G, double x) {
@@ -129,6 +130,7 @@ double p2_filter_process(tP2Filter * f, double x) {
     S         = (G2 * G * (1.0 - G) * f->stage[0]) + (G2 * (1.0 - G) * f->stage[1]) + (G * (1.0 - G) * f->stage[2]) + ((1.0 - G) * f->stage[3]);
 
     double u     = (x - (f->k * S)) / (1.0 + (f->k * G2 * G2));
+    double uMix  = u;    // notes §7: the low-passes' leak takes the loop input before the saturation
 
     u         = tanh(LOOP_DRIVE * u) / LOOP_DRIVE;
 
@@ -136,7 +138,7 @@ double p2_filter_process(tP2Filter * f, double x) {
     double y2    = one_pole(&f->stage[1], G, y1);
     double y3    = one_pole(&f->stage[2], G, y2);
     double y4    = one_pole(&f->stage[3], G, y3);
-    double out   = (f->mix[0] * x) + (f->mix[1] * u) + (f->mix[2] * y1) + (f->mix[3] * y2) + (f->mix[4] * y3) + (f->mix[5] * y4);
+    double out   = (f->mix[0] * x) + (f->mix[1] * (f->lowPass ? uMix : u)) + (f->mix[2] * y1) + (f->mix[3] * y2) + (f->mix[4] * y3) + (f->mix[5] * y4);
 
     double shelf = (f->shelfB0 * out) + (f->shelfB1 * f->shelfX) - (f->shelfA1 * f->shelfY);
 

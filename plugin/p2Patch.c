@@ -168,6 +168,16 @@ const char * p2_patch_library_folder(void) {
     return folder;
 }
 
+// "NNN Name.syx" in any folder -> NNN, otherwise 0: the instrument's program a file stands for
+int p2_patch_file_number(const char * path) {
+    const char * name = strrchr(path, '/');
+    int          number;
+
+    name   = (name != NULL) ? (name + 1) : path;
+    number = atoi(name);
+    return ((number >= 1) && (number <= P2_PATCH_SLOTS) && (name[0] >= '0') && (name[0] <= '9')) ? number : 0;
+}
+
 // "NNN Name.syx" in the library folder -> NNN, otherwise 0
 int p2_patch_library_number(const char * path) {
     const char * slash  = strrchr(path, '/');

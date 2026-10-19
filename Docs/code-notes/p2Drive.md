@@ -38,3 +38,34 @@ Open, both seen in the same captures:
   the raw input) did not fit; the shapes say the small-signal path is rounded, not gated.
 - TUBE fits neither this structure nor an input-coupled one: its positive part narrows as Drive rises, a bias that
   moves with Drive, which the feedback coupling here cancels. TUBE keeps its 1 kHz fit.
+
+## 4. What the level sweep showed, and the two ways forward (2026-10-19)
+Captures: `/Volumes/ext-ssd/Captures/Pulse2/drive_sweep/` - osc 1's triangle through the open LP24 at 17 levels
+(12-127) at note 48, and 5 levels at notes 72 and 84; each with Drive Curve NONE (the input) and FUZZ and TUBE at
+Drive 0, 16, 32, 64, 127. `drive_dyn/` holds 3 s notes at quiet levels.
+- Both curves limit hard: above about -31 dB of input the output sits at -25 to -27 dB (Volume 40).
+- Both are static shapes: the loss at the top follows the harmonic number, not the frequency, at all three pitches
+  (FUZZ at Drive 16: harmonic 3 down 1.4-3 dB, harmonic 17 down 5.5-10.5 dB), so the rounding comes from the curve,
+  not from a filter. FUZZ is a symmetric soft clip whose tops dome (still following the triangle); TUBE is
+  asymmetric, a pulse whose duty changes with Drive (harmonic 3 about 14 dB down, 5 only 3-5 dB at Drive 16).
+- Quiet inputs come out disproportionately quiet (FUZZ Drive 0: 4-5 dB of output per dB of input below about
+  -35 dB), but the waveform shows no dead zone at the zero crossings, so it is not a static curve. Over a 3 s note
+  at level 18 the FUZZ gain settles from -5.8 to -3.0 dB against NONE in about 0.75 s; 0.7 s notes in the sweep read
+  -6.7 dB for the same case - settling, and possibly drift between sessions or dependence on what played before
+  (bias or coupling capacitors charging).
+- Structures tried and rejected: a coupling loop around the clipper (cancels any bias); input coupling + bias +
+  clipper; expanders after the gain and on the raw input; a diode-like dead zone (right levels, wrong shapes:
+  steps at the zero crossings the instrument does not have); a 957 Hz output low-pass (a fit to one pitch; 20-30 dB
+  wrong at notes 72 and 84). Fit tools: a C copy of the drive model driven from Python (scipy least squares), one
+  aligned cycle per take, plus harmonic-spectrum scoring - spectra, not waveforms, decide, as phase is not heard.
+
+Two ways forward (todo, top):
+1. Pragmatic, for P003 now: keep the static FUZZ fit (§3) and add a level-dependent gain fitted to the sweep's
+   output levels, so quiet inputs come out as quiet as the instrument's. Brings P003's sustain (6-9 dB loud) to
+   within a couple of dB; does not reproduce the settling or the exact quiet-input shape. About half an hour, no
+   new captures.
+2. Thorough, both curves: model the quiet-input behaviour as what it appears to be - a slow settling (bias or
+   coupling) - from long notes repeated at several quiet levels and Drives, with the settling's time constant and
+   its dependence on the previous note; then fit the static curves as measured shapes (a table or spline per
+   Drive, not a formula), FUZZ symmetric and TUBE asymmetric with its moving duty. Several hours, with the rig to
+   itself for stretches.

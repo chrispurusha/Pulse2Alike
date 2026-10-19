@@ -480,7 +480,7 @@ of 36's harmonics: with note 60 the measurement read the held note's 4th harmoni
   falls about 19 dB a second (2 s to −40 dB, a release stage near 64.5).
 - **Release 40:** Fade 100 and 127 stop at once.
 - The fade in does not change with Fade.
-- The CCs (103/104) are as the manual lists them, and the loop values are OFF / A-D / D-D as the
+- The instrument's own display agrees with the CCs (103/104), and calls the loop values OFF / A-D / D-D as the
   manual does (the plug-in had them wrong).
 
 ## 2026-10-17 - envelope loops (`loop/`)
@@ -739,3 +739,16 @@ detuned oscillators beat at different phases - the DCOs do run free.
 - **Drive from the instrument's own triangle** (no EXT IN): FUZZ refitted, 23% -> 7% of the peak for normal levels
   (p2Drive notes §3). Found: FUZZ expands below about -35 dB input (P003's sustain), TUBE's bias moves with Drive;
   both open. Both drives limit hard: TUBE and FUZZ never pass 0.08-0.10 of full scale at Volume 40.
+- **Drive level sweep** (17 levels, 3 pitches, NONE/FUZZ/TUBE): both curves are static shapes that limit hard; the
+  quiet-input loss is a slow settling, not a curve. Structures tried and rejected, and the two ways forward, in
+  p2Drive notes §4.
+- **Pitch froze at key-up** (fixed, CT on P004): mod, glide and bend on the oscillators stopped at the release - p2Plugin notes §42.
+- **P004 against the instrument, C3/F3 alternating** (`p004_glide/`, LFO phases fixed): pitch identical, level +0.7 dB,
+  brightness within 1 dB from 10 ms on; osc 2's delayed pitch-follow agrees note for note (the instrument's "32.2"
+  between notes is mains hum, 52 Hz, under osc 2's envelope dip). Fixed: the oscillators now run from creation (a
+  first note from a fresh instance thumped - a one-sided swing decaying over 40 ms). Open: the first ~4 ms of a
+  note over a release - the instrument's first half-cycle is smoother; 2 ms windows on a 260 Hz wave are too noisy
+  to say more (`fenv_attack/` needs redoing with Filter Velocity set: at 0 the envelope did not open).
+- **LP24's stopband refitted to the instrument's noise** (no oscillator, no EXT IN): a notch and a 10 dB bump moving
+  with the cutoff are gone, within ~3 dB everywhere (p2Filter notes §7). P006's noise alone and the routed gain on
+  it match the instrument within ~1 dB; what is left is LP12's stopband, ~2.5 dB high at 1-2.5 kHz at cutoff 0.

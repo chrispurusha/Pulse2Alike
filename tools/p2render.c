@@ -1,5 +1,7 @@
 // Renders a note through the plug-in's own engine, offline: a .syx sound loaded, one note held, a WAV written.
 // usage: p2render <sound.syx|-> <note> <hold_s> <tail_s> <out.wav> [rate] [title=plain ...]   ("-" keeps the defaults)
+//        <note> may be a chord, "48,52,55", or a sequence of note:start:length in seconds, "48:0:0.4,60:0.6:0.15"
+//        (with a sequence, hold_s is the length before the tail)
 //        a title is the parameter's, matched without case or spaces: osc1level=127 drivecurve=1
 // Build: tools/do-p2render
 #include <ctype.h>
@@ -91,11 +93,19 @@ int main(int argc, char ** argv) {
         return 2;
     }
     const tSynthLibPluginDesc * d                              = &synthlib_plugin_variants()->variants[0];
-    int                         notes[8], noteCount = 0;
+    int                         notes[32], noteCount = 0;
+    double                      starts[32], lengths[32];
     float                       velocity                       = 100.0f / 127.0f; // "48" or a chord, "48,52,55"
 
-    for (char * tok = strtok(argv[2], ","); (tok != NULL) && (noteCount < 8); tok = strtok(NULL, ",")) {
-        notes[noteCount++] = atoi(tok);
+    bool                        sequence                       = (strchr(argv[2], ':') != NULL);
+
+    for (char * tok = strtok(argv[2], ","); (tok != NULL) && (noteCount < 32); tok = strtok(NULL, ",")) {
+        char * c1 = strchr(tok, ':');
+
+        notes[noteCount]   = atoi(tok);
+        starts[noteCount]  = (c1 != NULL) ? atof(c1 + 1) : 0.0;
+        lengths[noteCount] = ((c1 != NULL) && (strchr(c1 + 1, ':') != NULL)) ? atof(strchr(c1 + 1, ':') + 1) : -1.0;
+        noteCount++;
     }
 
     int                         note                           = notes[0];
@@ -145,17 +155,19 @@ int main(int argc, char ** argv) {
     for (size_t at = 0; at < total; at += 256) {
         uint32_t frames = (uint32_t)((total - at) < 256 ? (total - at) : 256);
 
-        if ((at <= on) && (on < at + frames)) {
-            for (int n = 0; n < noteCount; n++) {
-                d->cb.noteOn(inst, 0, (uint8_t)notes[n], velocity, (uint32_t)(on - at));
+        for (int n = 0; n < noteCount; n++) {
+            size_t nOn  = sequence ? (on + (size_t)(starts[n] * rate)) : on;
+            size_t nOff = sequence ? (nOn + (size_t)(lengths[n] * rate)) : off;
+
+            if ((at <= nOn) && (nOn < at + frames)) {
+                d->cb.noteOn(inst, 0, (uint8_t)notes[n], velocity, (uint32_t)(nOn - at));
+            }
+
+            if ((at <= nOff) && (nOff < at + frames)) {
+                d->cb.noteOff(inst, 0, (uint8_t)notes[n], 0.0f, (uint32_t)(nOff - at));
             }
         }
 
-        if ((at <= off) && (off < at + frames)) {
-            for (int n = 0; n < noteCount; n++) {
-                d->cb.noteOff(inst, 0, (uint8_t)notes[n], 0.0f, (uint32_t)(off - at));
-            }
-        }
         d->cb.process(inst, NULL, 0, outs, 2, frames, NULL);
         memcpy(mono + at, left, frames * sizeof(float));
     }

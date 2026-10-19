@@ -20,3 +20,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P006 by ear again (osc 3 on LEVEL2 three times deeper, osc 3 louder: its tone now stands against the noise as the instrument's does)
 - Hiss switch (GLOBAL page): on, a dark patch (P009) should gain the instrument's faint top-end hiss; off by default
 - Link button / File > Send Sound to Pulse 2: set Pulse 2 MIDI Channel (GLOBAL) to 12, Link on, turn knobs and load sounds; the instrument should follow. Mod matrix edits go as dumps (at most 10 a second)
+- P004 with osc 1 down, C3/F3 alternating: osc 2 should step to each note about 0.2 s in, held or not; first note after loading without a thump

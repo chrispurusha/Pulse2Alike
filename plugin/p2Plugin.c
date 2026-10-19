@@ -80,6 +80,10 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC3_TO_CUTOFF_STEPS       (125.0)   // per unit of osc 3 (+-1) at full level, fitted to P002
 #define OSC3_TO_DRIVE              (30.0)    // drive units per unit at full level, measured
 #define OSC3_FB_GAIN               (5.7)     // the drive's output back into the mixer, at full level: measured with a saw
+#define FEEDTHROUGH_COUPLING_HZ    (3)       // notes §43
+#define VCA_FEEDTHROUGH            (0.0)     // notes §43: the VCA's control leaking into its output
+#define VCA_COUPLING_HZ            (2)
+#define LEVEL_FEEDTHROUGH          (0.0)     // notes §43: osc level modulation leaking into the mix as DC
 #define ROUTED_MIX_GAIN            (1.8)     // notes §37: osc 3 routed away from the mix
 #define MIX_SLEW_PER_SECOND        (15000.0) // notes §40: the filter input's slew, fitted to saws
 #define MIX_COUPLING_HZ            (5.0)     // notes §37: the mix reaches the filter AC-coupled
@@ -223,10 +227,17 @@ typedef struct {
     uint32_t    noise;                 // xorshift state
     double      noiseLp[4];            // notes §34: the band limit, two biquad states
     double      noiseColour;
+    double      levelTarget[5];        // notes §43: osc 1-3, noise, the feedthrough - set per control tick
+    double      levelNow[5];           //   and glided per sample
+    bool        levelsSet;
+    double      feedCoupled;
+    double      vcaCoupled;
     double      hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
     bool        hwValid;
     bool        hwDumpDue;
     double      hwLastDump;
+    double      hwDumpNotBefore;
+    int         hwProgram;   // notes §41: the library number the instrument was last sent, 0 none
     double      slewed;      // notes §40
     double      hissLp[8];   // notes §38: the same, for the two hiss sources
 } tP2Plugin;
@@ -272,9 +283,7 @@ static int32_t osc_pitch(const tP2Plugin * p, double note, uint32_t semiId, uint
 static void set_unison(tP2Plugin * p);
 
 static void update_dcos(tP2Plugin * p) {
-    if (p->noteCount == 0) {
-        return;
-    }
+    // notes §42: pitch and its modulation go on through the release, and the oscillators run from the start
     double  note   = (double)p->glidePitch / 256.0;
     double  rate   = p->sampleRate * p->oversample;
     int32_t shape3 = plain_int(p, kP2ParamOsc3Shape);
@@ -697,6 +706,7 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     glide_controls(p, true);
     p->cutoffNow           = p->cutoffTarget = p->cutoff;
     p->lastNote            = KEYTRACK_REFERENCE_NOTE;
+    p->glidePitch          = (int64_t)KEYTRACK_REFERENCE_NOTE * 256;   // notes §42: running before the first note
     update_filter(p);
 
     synthlib_log_line("created - Pulse2Alike %s", P2A_VERSION_STRING);
@@ -750,6 +760,7 @@ static void p2_prepare(void * inst, const tSynthLibSetup * setup) {
     glide_controls(p, true);
     p->cutoffNow  = p->cutoffTarget = p->cutoff;
     p->lastNote   = KEYTRACK_REFERENCE_NOTE;
+    p->glidePitch = (int64_t)KEYTRACK_REFERENCE_NOTE * 256;
     update_filter(p);
     update_dcos(p);
 }
@@ -950,26 +961,41 @@ static void release_sustained(tP2Plugin * p) {
     }
 }
 
+// notes §43: the mixer's levels, with their modulation, as of this control tick
+static void level_targets(tP2Plugin * p) {
+    int32_t shape3 = plain_int(p, kP2ParamOsc3Shape);
+
+    p->levelTarget[0] = level_gain(p, kP2ParamOsc1Level);
+    p->levelTarget[1] = level_gain(p, kP2ParamOsc2Level);
+    p->levelTarget[2] = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0;   // EXT: no input in the plug-in yet
+    p->levelTarget[3] = level_gain(p, kP2ParamNoiseLevel);
+    p->levelTarget[4] = LEVEL_FEEDTHROUGH * (p->levelTarget[0] + p->levelTarget[1] + p->levelTarget[2]);
+
+    if (!p->levelsSet) {
+        memcpy(p->levelNow, p->levelTarget, sizeof(p->levelNow));
+        p->levelsSet = true;
+    }
+}
+
 static void p2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * t) {
     tP2Plugin *    p         = (tP2Plugin *)inst;
-    double         level1    = level_gain(p, kP2ParamOsc1Level);
-    double         level2    = level_gain(p, kP2ParamOsc2Level);
     // notes §30: a pulse is quieter than the DCO's saw; the three oscillators' share in the mix
     int32_t        shape1    = plain_int(p, kP2ParamOsc1Shape);
     double         mix1      = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
     double         mix2      = (plain_int(p, kP2ParamOsc2Shape) == 0) ? PULSE_LEVEL : 1.0;
     int32_t        shape3    = plain_int(p, kP2ParamOsc3Shape);
-    double         level3    = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0; // EXT: no input in the plug-in yet
     bool           feedback  = shape3 == 4;
     double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
     int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
     double         mixHp     = 1.0 - exp(-2.0 * M_PI * MIX_COUPLING_HZ / (p->sampleRate * p->oversample));
+    double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
+    double         vcaHp     = 1.0 - exp(-2.0 * M_PI * VCA_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         mixGain   = OSC_INTO_FILTER * ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);
     int            curve     = plain_int(p, kP2ParamDriveCurve);
     double         drive     = plain(p, kP2ParamDrive) + p->mod[eModDrive];
     double         rateIn    = p->sampleRate * p->oversample;
-    double         noise     = NOISE_LEVEL * level_gain(p, kP2ParamNoiseLevel) * sqrt(rateIn / NOISE_REFERENCE_RATE);
+    double         noiseRate = NOISE_LEVEL * sqrt(rateIn / NOISE_REFERENCE_RATE);
     double         noiseLp[5];
     double         colour    = 1.0 - exp(-2.0 * M_PI * NOISE_COLOUR_HZ / rateIn);
     double         hiss      = (plain_int(p, kP2ParamHiss) != 0) ? sqrt(rateIn / NOISE_REFERENCE_RATE) : 0.0;
@@ -1014,8 +1040,20 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
         if (--p->tickCountdown <= 0) {
             control_tick(p, (double)tick / p->sampleRate);
+            level_targets(p);
             p->tickCountdown = tick;
         }
+
+        if (!p->levelsSet) {
+            level_targets(p);
+        }
+
+        for (int k = 0; k < 5; k++) {
+            p->levelNow[k] += (p->levelTarget[k] - p->levelNow[k]) * smooth;
+        }
+
+        double level1 = p->levelNow[0], level2 = p->levelNow[1], level3 = p->levelNow[2];
+        double noise = noiseRate * p->levelNow[3];
         p->vca       += (p->vcaTarget - p->vca) * smooth;
         p->cutoffNow += (p->cutoffTarget - p->cutoffNow) * smooth;
         update_filter(p);
@@ -1034,8 +1072,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
             p->noiseColour    += colour * (white - p->noiseColour);
             double sources = p->noiseColour;
-            double osc     = 0.0;                   // the oscillators alone
-            double cv3     = osc3 - p->osc3Coupled; // notes §25
+            double osc     = 0.0;                             // the oscillators alone
+            double cv3     = osc3 - p->osc3Coupled;           // notes §25
 
             p->osc3Coupled    += coupling * cv3;
             double amp2    = level2;
@@ -1095,13 +1133,21 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             double filtered = p2_filter_process(&p->filter, p->slewed) - p->filterCoupled;
 
             p->filterCoupled         += mixHp * filtered;
+            // notes §43: the level controls' leak, coupled on its own
+            double leak     = p->levelNow[4] - p->feedCoupled;
+
+            p->feedCoupled           += feedHp * leak;
+            filtered                 += leak;
 
             if (hiss > 0.0) {
                 filtered += band_limit(band_limit(HISS_AFTER_FILTER * hiss * white_noise(p), noiseLp, &p->hissLp[4]), noiseLp, &p->hissLp[6]);
             }
             p->driveOut               = p2_drive_process(&p->drive, (tP2DriveCurve)curve,
                                                          drive + ((routing == 3) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);
-            double y        = p->driveOut * p->vca;
+            double vcaLeak  = (VCA_FEEDTHROUGH * p->vca) - p->vcaCoupled;  // notes §43
+
+            p->vcaCoupled            += vcaHp * vcaLeak;
+            double y        = (p->driveOut * p->vca) + vcaLeak;
 
             p->history[p->historyPos] = y;
             p->historyPos             = (p->historyPos + 1) % DECIMATOR_TAPS;
@@ -1371,6 +1417,7 @@ static void p2_load_patch(void * user, const char * path) {
 
 #define HW_DUMP_INTERVAL       (0.1) // seconds between dumps while something without a CC is moving
 #define HW_CHANGES_FOR_DUMP    (8)   // more changes than this at once (a new sound) go as one dump
+#define HW_PROGRAM_SETTLE      (0.4) // seconds the instrument takes to load a program before the dump may follow
 
 // The parameters the instrument takes by CC, as the measurement rig drives it
 static const struct {
@@ -1434,6 +1481,23 @@ static void hardware_follow(tP2Plugin * p, void * user) {
     }
     p->hwDumpDue |= !p->hwValid;
 
+    // notes §41: a sound from the library goes as its program change too, so the instrument shows its number; the
+    // dump follows once the instrument has loaded it, and carries any edits
+    int               number  = p2_patch_file_number(p->patchPath);
+
+    if (!p->hwValid) {
+        p->hwProgram = 0;
+    }
+
+    if ((number > 0) && (number != p->hwProgram)) {
+        uint8_t change[5] = {(uint8_t)(0xB0 | channel), 32, (uint8_t)((number - 1) / 100), (uint8_t)(0xC0 | channel), (uint8_t)((number - 1) % 100)};
+
+        result             = p2_hardware_send(change, sizeof(change));
+        p->hwProgram       = number;
+        p->hwDumpDue       = true;
+        p->hwDumpNotBefore = now_seconds() + HW_PROGRAM_SETTLE;
+    }
+
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         double v    = synthlib_plugin_param_value(user, id);
 
@@ -1460,12 +1524,12 @@ static void hardware_follow(tP2Plugin * p, void * user) {
     p->hwDumpDue |= (changes > HW_CHANGES_FOR_DUMP);
 
     if (p->hwDumpDue) {
-        if ((now_seconds() - p->hwLastDump) >= HW_DUMP_INTERVAL) {
+        if (((now_seconds() - p->hwLastDump) >= HW_DUMP_INTERVAL) && (now_seconds() >= p->hwDumpNotBefore)) {
             result        = (tP2HardwareResult)p2_send_to_hardware(user);
             p->hwDumpDue  = false;
             p->hwLastDump = now_seconds();
         }
-    } else {
+    } else if (result == eP2HardwareSent) {
         for (int i = 0; (i < ccCount) && (result == eP2HardwareSent); i++) {
             result = p2_hardware_send(ccs[i], 3);
         }

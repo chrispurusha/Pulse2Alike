@@ -19,6 +19,8 @@
 #ifndef __P2_FILTER_H__
 #define __P2_FILTER_H__
 
+#include <stdbool.h>
+
 typedef enum {
     eP2FilterLp24 = 0,
     eP2FilterLp12,
@@ -41,6 +43,7 @@ typedef struct {
     double stage[4];
     double shelfX, shelfY;
     double top2;
+    bool   lowPass;
 } tP2Filter;
 
 double p2_filter_oscillation_hz(double cutoff);

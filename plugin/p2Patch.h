@@ -43,6 +43,7 @@ int p2_patch_param_byte(uint32_t paramId, double normalized);   // its sound byt
 
 const char * p2_patch_library_folder(void);
 int p2_patch_library_number(const char * path);            // "NNN Name.syx" in the library folder, else 0
+int p2_patch_file_number(const char * path);               // "NNN Name.syx" in any folder -> NNN, else 0
 void p2_patch_cache_load(void);
 void p2_patch_cache_reload(void);                          // main thread: rescan the folder
 void p2_patch_cache_store(int number, const uint8_t dump[P2_DUMP_LENGTH], const char * path);

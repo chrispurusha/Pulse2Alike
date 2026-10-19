@@ -46,3 +46,19 @@ low notes in P004/P007/P008/P009/P012 (CT).
 
 LP12's whole mix is then scaled by 0.902 (-0.9 dB): with the filter open it measured 0.8-1.0 dB louder than the
 instrument against LP24 (which matches within 0.2 dB), at oscillator levels 60 and 127 and at Volume 31 and 40.
+
+## 7. LP24's mix, fitted to the noise (2026-10-19)
+The instrument's own noise generator through the filter (`/Volumes/ext-ssd/Captures/Pulse2/noise_stopband/`: LP12
+and LP24, cutoff 0-60 and open, resonance 0 and 41, note 60), each spectrum relative to its own open take, so the
+noise's colour and the rig drop out. A linear model of the loop (four matched one-poles, feedback k, the six taps,
+the shelf and the 42.5 kHz pole) was fitted by least squares on third-octave dB, bands under -55 dB of the open
+level counting only when the model rose above them (the rig's floor).
+- LP24: the leak (the input against the loop input) is real - without it no mix fits - but it is a near
+  cancellation, -0.173 against +0.172, which the loop's saturation breaks if the loop input is taken after it (the
+  engine came out 10-14 dB high in the stopband). So LP24's leak takes the loop input before the saturation. The
+  engine is within about 3 dB of the instrument at every cutoff and resonance measured (it had a notch and a
+  10 dB bump moving with the cutoff); P013 within 1 dB.
+- LP12 keeps the mix of §6: a fitted LP12 mix matched the noise better but leant on the same kind of cancellation,
+  and with real patches - three oscillators, the routed mix gain - the saturation broke it (P006's sustain 21-26 dB
+  bright, several patches 4-5 dB). Its stopband stays about 2.5 dB high at 1-2.5 kHz at cutoff 0 (P006's noise,
+  open).

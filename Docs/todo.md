@@ -3,12 +3,18 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- P003 / FUZZ: small-signal expansion below about -35 dB input (p2Drive notes §3); TUBE: bias moving with Drive
+- Link HW: the Pulse 2's P.XXX does not follow (the sound and its name do, from the dump) and a cutoff turn does not reach it - both are channel messages: check the Pulse 2 MIDI Channel setting (default 1, CT's instrument is on 12) before anything else
+- P006: still more noise on the plug-in - the noise level and the routed gain match the instrument (p006_noise/); LP12's stopband is ~2.5 dB high at 1-2.5 kHz at cutoff 0 and a fitted mix that fixes it breaks under drive (p2Filter notes §7): an LP12 leak that is robust to saturation
+- P010: brighter on the plug-in (CT, listening)
+- Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst
+- The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
+- Drive, way 1 (pragmatic, P003): a level-dependent gain on the static FUZZ fit, from the level sweep - p2Drive notes §4
+- Drive, way 2 (thorough): long repeated quiet-level captures for the settling; FUZZ and TUBE as measured curves per Drive - p2Drive notes §4
 - P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched
 - P005: sustain 6-7 dB dark
 - P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet
 - P011: compare at a fixed phase - its slow LFO (sTRI) runs free on the instrument, so no take starts where the plug-in does
-- P015: compare with a clean arpeggiator - HOLD keeps the notes latched from the take before; release the latch (Arp OFF, then ON) before each take
+- P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp, whose HOLD also latches notes from the take before; then the arp on its own, released (Arp OFF, then ON) before each take
 
 ## Rig
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture

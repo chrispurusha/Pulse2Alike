@@ -297,5 +297,31 @@ thread) compares every sound parameter with what the instrument was last given. 
 takes by CC goes as that CC, on the Pulse 2 MIDI Channel setting - the value is the parameter's sound byte, as the
 measurement rig sends it; a change to one without (the mod matrix, LFOs, bend range, arp steps), or more than 8 at
 once (a new sound), sends the whole sound as one edit-buffer dump, at most every 0.1 s. Switching Link on sends the
-sound. A failed send switches Link off and says why. File > Send Sound to Pulse 2 sends it once. Both paths checked
+sound. A sound from a numbered file - "NNN Name.syx" in any folder, a copy on the Desktop too - (Load, Prev/Next,
+by number, a program change) is also sent as its bank select
+(CC 32) and program change, so the instrument's display shows the same number; the dump follows 0.4 s later, once
+the instrument has loaded that program, and carries any edits. A failed send switches Link off and says why. File > Send Sound to Pulse 2 sends it once. Both paths checked
 on the instrument (the dump read back byte for byte; a cutoff CC read back).
+
+## 42. Pitch goes on moving in the release
+The oscillators' pitches are recomputed every control tick whether or not a key is held: the instrument keeps
+modulating them through the release (CT, P004 with osc 1 down: its osc 2 follows the keyboard through
+PITCH FLW -> M-ACCU -> M-DELAY (224 ms) -> OSC2 PITCH, and steps to the new note even after a short note is let go).
+The engine had frozen them at the key-up, so a note shorter than the delay never got there. Before the first note
+they run at the reference note, as the instrument's never stop: started only by the first note, they began
+abruptly and the mix's coupling turned that into a one-sided thump decaying over ~40 ms (seen in a render). M-DELAY's 16 ms per step of amount stands: the matrix runs once per 1 ms tick,
+the tick the glide law was measured on.
+
+## 43. The mixer's levels follow the control tick; the thump (open)
+The oscillator and noise levels, with their modulation, are taken every control tick (1 ms) and glided per sample;
+they had been read once per audio block, so a modulated level (P004: the filter envelope pulling osc 2 down) moved
+in steps of a block - 5 ms at 256 samples - and its burst at the attack came out late, long and abrupt.
+The instrument's P004 (CT's recording, C3/F3 alternating, osc 1 down) also thumps: the slow part of its output rises
+about +0.03 in the first 10 ms, falls through zero by 40 ms and holds near -0.05 to about 250 ms. Control-voltage
+feedthrough, coupled. Tried, none matching the timing (the instrument's step is gone within ~25 ms): the osc level
+controls' leak into the mix (5 Hz coupling) or after the filter (0.7-3 Hz), and the VCA's control into its output
+(0.5-2 Hz). The hooks stay at zero (LEVEL_FEEDTHROUGH, VCA_FEEDTHROUGH) until a clean measurement - oscillators
+and noise off, one envelope at a time - says which control leaks.
+The instrument's osc 2 burst there is also shorter and earlier (peak 0.155 at ~3 ms, gone by ~7 ms) than the
+engine's: likely the filter envelope's short attacks are faster than the amp envelope's table; to measure with
+noise through the filter (a saw's cycles make 2 ms windows useless at low notes).
