@@ -230,8 +230,12 @@ A floor of white noise about 100 dB down is always in the mix, as the instrument
 or the FB loop can start to oscillate with every source off (a patch playing the self-oscillating filter as a sine
 was silent without it).
 
-The noise is darker than white, measured on the noise alone: one pole at 5.7 kHz, within 1.5 dB of it in every
-band (it had come from the filter's EXT IN pole, removed). It is band-limited (two Butterworth sections at 22 kHz) and its amplitude scales with the square root of the
+The noise is darker than white: one pole at 8.5 kHz and a level of 1.4, fitted to the noise alone with the filter
+open (within 0.5 dB in every band) and to P006's noise between osc 1's harmonics at three osc 1 levels
+(`p006_masking/`, each dump read back from the edit buffer; within 0.7 dB at 1-4 kHz, 1.4 dB low at 4-12 kHz, where
+the two sets pull apart). It had been one pole at 5.7 kHz and 1.585 (from the filter's EXT IN pole, removed). A loud
+oscillator squashes the noise in the filter's saturation as it does on the instrument (osc 1 at 127: -4.5 dB at
+250 Hz-1 kHz on the instrument, -4.0 in the engine). It is band-limited (two Butterworth sections at 22 kHz) and its amplitude scales with the square root of the
 internal rate, so its density - what is heard - is the level above at any host rate and oversampling. White at the
 internal rate, as it first was, it carried most of its power above the audio band: at a 48 kHz host the audible noise
 came out 6 dB over the 192 kHz renders it was measured in, and the ultrasonic power drove the filter's saturation,

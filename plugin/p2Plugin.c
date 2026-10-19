@@ -135,10 +135,10 @@ enum {
 #define PARA8_VOICE_LEVEL        (0.263)    // notes §12: one voice against the same pulse played mono, measured
 #define PARA4_VOICE_LEVEL        (0.363)
 #define NOISE_FLOOR              (1e-5)     // about -100 dB: the analogue floor
-#define NOISE_LEVEL              (1.585)    // notes §34: +4 dB, measured against the saw
+#define NOISE_LEVEL              (1.4)      // notes §34: measured against the saw and in P006
 #define NOISE_REFERENCE_RATE     (768000.0) // notes §34: the internal rate NOISE_LEVEL was measured at
 #define NOISE_BANDWIDTH_HZ       (22000.0)
-#define NOISE_COLOUR_HZ          (5715.0)   // notes §34: the noise is darker than white, measured on the noise itself
+#define NOISE_COLOUR_HZ          (8500.0)   // notes §34: the noise is darker than white, measured on the noise itself
 #define HISS_INTO_FILTER         (1.19e-3)  // notes §38: the instrument's hiss, measured against a saw
 #define HISS_AFTER_FILTER        (2.03e-4)
 #define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
