@@ -19,8 +19,13 @@ def period_ticks(note):
 
 def read(path):
     w = wave.open(path)
-    ch, n, rate = w.getnchannels(), w.getnframes(), w.getframerate()
-    x = np.frombuffer(w.readframes(n), dtype='<i4').reshape(-1, ch) / 2.0 ** 31
+    ch, n, rate, width = w.getnchannels(), w.getnframes(), w.getframerate(), w.getsampwidth()
+    raw = np.frombuffer(w.readframes(n), dtype=np.uint8)
+    if width == 3:      # 24-bit: widen each sample to 32 by putting it in the top three bytes
+        b = raw.reshape(-1, 3)
+        raw = np.column_stack([np.zeros(len(b), np.uint8), b]).reshape(-1)
+        width = 4
+    x = np.frombuffer(raw.tobytes(), dtype={2: '<i2', 4: '<i4'}[width]).reshape(-1, ch) / 2.0 ** (8 * width - 1)
     return x, rate
 
 

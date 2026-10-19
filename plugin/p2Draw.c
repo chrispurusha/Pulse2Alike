@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "p2Draw.h"
+#include "p2Hardware.h"
 
 #include "synthlibDefs.h"
 #include "synthlibGlobals.h"
@@ -113,7 +114,7 @@ static tMenuItem            gMenuItems[MENU_MAX + 1];
 static const tP2PatchHost * gHost;
 static void *               gUser;
 static char                 gPatchPath[1024];
-static tRectangle           gPrevRect, gNextRect, gLoadRect, gNameRect;
+static tRectangle           gPrevRect, gNextRect, gLoadRect, gNameRect, gLinkRect;
 
 // notes §6: the sound's name, edited in place as SynthEdit's program name is
 static struct {
@@ -337,6 +338,22 @@ static void on_init_confirmed(bool confirmed) {
         gHost->init(gUser);
         p2_draw_set_patch("Init");
     }
+}
+
+void p2_draw_send_to_hardware(void) {
+    if ((gHost != NULL) && (gHost->send != NULL) && (gUser != NULL)) {
+        int result = gHost->send(gUser);
+
+        if (result != eP2HardwareSent) {
+            p2_draw_hardware_problem(result);
+        }
+    }
+}
+
+void p2_draw_hardware_problem(int result) {
+    show_alert("Pulse 2", (result == eP2HardwareNotFound)
+               ? "No MIDI port with \"Pulse\" in its name. Is the Pulse 2 connected by USB?"
+               : "CoreMIDI would not send to the Pulse 2.");
 }
 
 void p2_draw_init_patch(void) {
@@ -682,6 +699,14 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
                                      56.0, PATCH_BUTTON_H
                                  }
         };
+        gLinkRect = (tRectangle){{
+                                     PATCH_BAR_X - 66.0, TITLE_Y + 2.0
+                                 }, {
+                                     56.0, PATCH_BUTTON_H
+                                 }
+        };
+        // notes §8: lit while the instrument follows the sound
+        draw_button(mainArea, gLinkRect, "Link", (p2_draw_value(kP2ParamHwLink) >= 0.5) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
         draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
         draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
         draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
@@ -796,6 +821,12 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
 
     if (gNameEdit.active) {
         name_edit_commit();
+    }
+
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLinkRect))) {
+        edit->paramId    = kP2ParamHwLink;
+        edit->normalized = (p2_draw_value(kP2ParamHwLink) >= 0.5) ? 0.0 : 1.0;
+        return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {

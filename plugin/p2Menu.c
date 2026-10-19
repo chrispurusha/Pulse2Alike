@@ -60,6 +60,11 @@ static void action_init(int index) {
     p2_draw_init_patch();
 }
 
+static void action_send_to_hardware(int index) {
+    (void)index;
+    p2_draw_send_to_hardware();
+}
+
 static void action_reload_library(int index) {
     (void)index;
     p2_patch_cache_reload();
@@ -113,7 +118,7 @@ static void build_number_menu(void) {
 }
 
 static void open_file_menu(tCoord anchor) {
-    static tMenuItem items[8];
+    static tMenuItem items[10];
     bool             haveFile = p2_draw_has_patch_file();
     int              i        = 0;
 
@@ -135,6 +140,9 @@ static void open_file_menu(tCoord anchor) {
     };
     items[i++] = (tMenuItem){
         "Reload Patch Library", ITEM, action_reload_library, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Send Sound to Pulse 2", ITEM, action_send_to_hardware, 0, NULL, 0, 0.0, NULL
     };
     items[i++] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);

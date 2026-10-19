@@ -230,7 +230,8 @@ A floor of white noise about 100 dB down is always in the mix, as the instrument
 or the FB loop can start to oscillate with every source off (a patch playing the self-oscillating filter as a sine
 was silent without it).
 
-The noise is band-limited (two Butterworth sections at 22 kHz) and its amplitude scales with the square root of the
+The noise is darker than white, measured on the noise alone: one pole at 5.7 kHz, within 1.5 dB of it in every
+band (it had come from the filter's EXT IN pole, removed). It is band-limited (two Butterworth sections at 22 kHz) and its amplitude scales with the square root of the
 internal rate, so its density - what is heard - is the level above at any host rate and oversampling. White at the
 internal rate, as it first was, it carried most of its power above the audio band: at a 48 kHz host the audible noise
 came out 6 dB over the 192 kHz renders it was measured in, and the ultrasonic power drove the filter's saturation,
@@ -268,3 +269,33 @@ The mix reaches the filter AC-coupled, and the filter's output is coupled again 
 through the filter's saturation leaves DC; the instrument's output carries neither (60 dB less below 20 Hz than the
 engine had), and the engine's pushed the filter's saturation and its measured level 10-17 dB over the instrument's
 with the filter closed. Below 20 Hz is ignored in every comparison since.
+
+## 38. Hiss
+The instrument hisses while a note sounds: white across the band, gated by the amp envelope (gone at Sustain 0 once
+the decay is over), following Volume exactly as the signal does, so it enters before the VCA. 73.4 dB under a saw
+at the same Volume with the filter open and 79.2 dB with it shut, so part of it reaches the filter (74.7 dB under)
+and part comes after it (79.2 dB). Two band-limited white sources reproduce both, within 0.2 dB and the spectrum
+within 1-3 dB above 150 Hz; the instrument's mains hum below that is left out.
+Off by default (the Hiss switch on the GLOBAL page), not saved with a sound. Under a closed filter it is all there
+is above 4 kHz, and it is what made the instrument sound brighter on dark patches (15-18 dB more at 4-16 kHz, as
+strong between a note's harmonics as on them). Comparisons render the engine with Hiss on, so it cancels.
+
+## 39. The oscillators' polarity
+The instrument's saw falls and jumps up, and its pulse at width 90 is high 74% of the cycle; the engine's were the
+other way up (CT, comparing recordings). The oscillators' audio is inverted in the mix; the noise, the FB loop and
+osc 3's control paths (LEVEL2, VCF, DRIVE - their directions measured) are not.
+
+## 40. The filter input's slew
+A saw through the open filter darkens with its level on the instrument: at level 127 its 20th harmonic is 1.9 dB and
+its 60th 3.4 dB down on level 63's, more than the filter's saturation gives. A slew limit of 15000 per second (filter
+input units) on the mix fits saws at levels 32, 63, 95 and 127 to 1.0 dB rms over 60 harmonics (1.2 without).
+Left: the instrument's small overshoot right at each jump, and level 32's top octave 2-3 dB dark.
+
+## 41. Link: the instrument following the sound
+With Link on, the editor's frame (`p2_panel_sync`, so only while this instance's editor is open, never on the audio
+thread) compares every sound parameter with what the instrument was last given. A change to one the instrument
+takes by CC goes as that CC, on the Pulse 2 MIDI Channel setting - the value is the parameter's sound byte, as the
+measurement rig sends it; a change to one without (the mod matrix, LFOs, bend range, arp steps), or more than 8 at
+once (a new sound), sends the whole sound as one edit-buffer dump, at most every 0.1 s. Switching Link on sends the
+sound. A failed send switches Link off and says why. File > Send Sound to Pulse 2 sends it once. Both paths checked
+on the instrument (the dump read back byte for byte; a cutoff CC read back).

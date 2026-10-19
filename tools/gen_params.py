@@ -113,6 +113,11 @@ add('Sustain','Sustain Pedal','Sustain',0,127,0,cont=True,flags=PERF,midi='SYNTH
 for i in range(1, 17):
     add('ArpStep%d' % i, 'Arp Step %d' % i, 'Step %d' % i, 0, 127, 50, flags='SYNTHLIB_PARAM_HIDDEN')
 add('ArpAccent','Arp Accent Control','Accent',0,24,0,'list',SRC)
+# the instrument's own hiss (p2Plugin notes §38); appended so no saved parameter is renumbered
+add('Hiss','Hiss','Hiss',0,1,0,'list',OFFON)
+# notes §41 (p2Plugin): the instrument's edit buffer kept in step with the sound, and its MIDI channel for the CCs
+add('HwLink','Link to Pulse 2','Link',0,1,0,'list',OFFON)
+add('HwChannel','Pulse 2 MIDI Channel','Channel',1,16,1)
 
 
 ROWS = ['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1Level',
@@ -147,7 +152,7 @@ PAGES=[
  ('ARP',[('ARPEGGIATOR',(0.65,0.65,0.65),['ArpActive','ArpMode','ArpRange','ArpClock','ArpTempo','ArpPattern']),
          ('TIMING',(0.65,0.65,0.65),['ArpStep','ArpSwing','ArpDelay','ArpLength','ArpAccent'])]),
  ('GLOBAL',[('PERFORMANCE',(0.65,0.65,0.65),['BendUp','BendDown','Osc1Fade','Osc2Fade']),
-            ('PLUG-IN',(0.65,0.65,0.65),['Oversample','Anomalies'])]),
+            ('PLUG-IN',(0.65,0.65,0.65),['Oversample','Anomalies','Hiss','HwLink','HwChannel'])]),
 ]
 
 ids={p['id']:i for i,p in enumerate(P)}

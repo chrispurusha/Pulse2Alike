@@ -43,7 +43,6 @@ static const double kMix[eP2FilterCount][6] = {
 };
 #define SHELF_ZERO_HZ    (250.2)
 #define SHELF_POLE_HZ    (179.3)
-#define TOP1_HZ          (5715.0)
 #define TOP2_HZ          (42533.0)
 
 // notes §4
@@ -97,14 +96,13 @@ void p2_filter_init(tP2Filter * f, double sampleRate) {
     f->shelfB0    = (1.0 + (1.0 / z)) * p / a;
     f->shelfB1    = (1.0 - (1.0 / z)) * p / a;
     f->shelfA1    = (1.0 - (1.0 / p)) * p / a;
-    f->top1G      = tpt_gain(TOP1_HZ, sampleRate);
     f->top2G      = tpt_gain(TOP2_HZ, sampleRate);
     p2_filter_set(f, 127.0, 0.0, eP2FilterLp24);
 }
 
 void p2_filter_reset(tP2Filter * f) {
     memset(f->stage, 0, sizeof(f->stage));
-    f->shelfX = f->shelfY = f->top1 = f->top2 = 0.0;
+    f->shelfX = f->shelfY = f->top2 = 0.0;
 }
 
 void p2_filter_set(tP2Filter * f, double cutoff, double resonance, tP2FilterMode mode) {
@@ -144,5 +142,5 @@ double p2_filter_process(tP2Filter * f, double x) {
 
     f->shelfX = out;
     f->shelfY = shelf;
-    return one_pole(&f->top2, f->top2G, one_pole(&f->top1, f->top1G, shelf));
+    return one_pole(&f->top2, f->top2G, shelf);
 }

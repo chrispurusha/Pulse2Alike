@@ -724,3 +724,15 @@ detuned oscillators beat at different phases - the DCOs do run free.
   1-4 kHz 4-7 dB bright in the first second and still 3-6 dB later, with the envelope gone - static, around
   resonance 41 / keytrack 95 at cutoff 0, open. The first 150 ms with the filter neutral are ~3 dB quiet, open.
   The filter envelope's 1.08 moves this by 1-2 dB only; kept.
+- **"Instrument brighter" on most patches was hiss and free LFOs, not the filter.** Under a closed filter the
+  instrument's 4-16 kHz is its own note-gated hiss (no harmonic structure); now a Hiss switch, off by default
+  (code-notes/p2Plugin §38). Free LFOs made takes differ by up to 27 dB (P012). brightness.py now loads each sound
+  with both LFO phases at 0 on both sides and renders with Hiss on: 15 patches at C3/F3, most within +-3 dB.
+  Open: P001 7-12 dB dark, P005 sustain 6-7 dB dark, P003 (fuzz), P015 (+5 dB, arp HOLD), P013 -2 / P014 +2 dB level.
+- The filter leak refit of the morning stands: restoring the old leak brightened P006/P009/P012 by 6-24 dB below 4 kHz.
+- **The engine's oscillators were upside down and 3-5 dB dull at 3-6 kHz** (CT's own recordings of P012 reduced to
+  one saw, filter open). The dullness was a 5.7 kHz pole fitted from EXT IN sweeps - the input stage's, not the
+  filter's; removed, the noise keeps it as its colour. Oscillators inverted; a slew limit at the filter input fits
+  the level-dependent darkening (p2Filter notes §3, p2Plugin §34, §39, §40). Saw now within 0.9 dB to 7.4 kHz
+  (was 5.4 dB). tools/plotwave.py draws captures against renders; osc_analyse.read() now takes 24-bit files.
+- Link (plug-in to instrument): CCs for what has one, edit-buffer dumps for the rest - p2Plugin notes §41, p2Hardware.

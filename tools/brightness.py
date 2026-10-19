@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # Brightness, instrument against engine: a library sound at a note and velocity; the energy above 1.5 kHz relative
 # to the fundamental's third octave, in the attack and the sustain. usage: brightness.py <first,patches> <note> <velocities>
+# Both LFOs are set to phase 0 in the dump, on the instrument and in the render, so a free LFO cannot differ between
+# takes; the engine renders with Hiss on, so the instrument's own hiss is on both sides of every comparison.
 import glob, os, subprocess, sys, time
 
 import numpy as np
@@ -10,7 +12,7 @@ import p2rig
 from osc_analyse import read
 
 LIB = os.path.expanduser('~/Library/Mobile Documents/com~apple~CloudDocs/Patches/Pulse2')
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/brightness'
+OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/brightness-phase0'
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -31,6 +33,17 @@ def bright(path, f0, gain=1.0):
     return out
 
 
+def phase0_dump(path, n):
+    """The sound with both LFO phases at 0, addressed to the EDIT BUFFER (7F 00) - never a slot."""
+    d = bytearray(open(path, 'rb').read())
+    d[5], d[6] = 0x7F, 0x00
+    d[7 + 81] = d[7 + 82] = 2
+    d[135] = sum(d[1:135]) & 0x7F
+    out = os.path.join(OUT, '%03d_phase0.syx' % n)
+    open(out, 'wb').write(d)
+    return out
+
+
 def main():
     patches = [int(v) for v in sys.argv[1].split(',')]
     notes = [int(v) for v in sys.argv[2].split(',')]
@@ -40,17 +53,17 @@ def main():
     print('engine minus instrument, dB: brightness (1.5-12 kHz over the fundamental) attack / sustain, and level')
     for n, note in [(n, note) for n in patches for note in notes]:
         f0 = 440.0 * 2 ** ((note - 69) / 12.0)
-        syx = glob.glob(os.path.join(LIB, '%03d *.syx' % n))[0]
+        syx = phase0_dump(glob.glob(os.path.join(LIB, '%03d *.syx' % n))[0], n)
         for v in vels:
             hw = os.path.join(OUT, 'hw_%03d_n%d_v%d.wav' % (n, note, v))
             if not os.path.exists(hw):
-                p2rig.send(p2rig.hexmsg(0xB0 | ch, 32, (n - 1) // 100), p2rig.hexmsg(0xC0 | ch, (n - 1) % 100), 'sleep:400')
+                p2rig.send(open(syx, 'rb').read().hex(), 'sleep:400')
                 cap = p2rig.capture(hw, 3.8, 192000)
                 time.sleep(0.8)
                 p2rig.send(*p2rig.note_items(note, 1.6, velocity=v))
                 cap.communicate()
             en = os.path.join(OUT, 'p2_%03d_n%d_v%d.wav' % (n, note, v))
-            subprocess.run([os.path.join(HERE, 'p2render'), syx, str(note), '1.6', '1.0', en, '192000', 'vel=%d' % v],
+            subprocess.run([os.path.join(HERE, 'p2render'), syx, str(note), '1.6', '1.0', en, '192000', 'vel=%d' % v, 'hiss=1'],
                            check=True, capture_output=True)
             h, e = bright(hw, f0), bright(en, f0, 10.0)
             print('  P%03d note %d vel %3d: bright %+5.1f / %+5.1f   level %+5.1f' % (n, note, v, e[0] - h[0], e[1] - h[1], e[2] - h[2]))

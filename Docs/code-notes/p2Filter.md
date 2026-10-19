@@ -18,8 +18,11 @@ the saturation).
 
 ## 3. The output mixes, shelf and top poles
 From the free-mix linear fit (`tools/filter_fit.py`, 0.46 dB rms over every sweep): each mode is a weighted sum
-of the input, the loop input and the four stage outputs. The shelf (+2.9 dB below about 200 Hz) and the 5.7 kHz
-and 42.5 kHz poles sit outside the loop.
+of the input, the loop input and the four stage outputs. The shelf (+2.9 dB below about 200 Hz) and the 42.5 kHz
+pole sit outside the loop. The fit also found a 5.7 kHz pole; it belongs to the EXT IN path the sweeps went through,
+not to the filter: a saw from the instrument's own oscillator, filter open, is flat to 7.4 kHz (CT's recording, then
+saws at four levels), and the pole had cut the engine's 3.7 dB at 3.7 kHz and 5.4 dB at 5.5 kHz. Removed 2026-10-19.
+The noise keeps it as its own colour (p2Plugin notes §34). EXT IN captures only supplement oscillator captures now.
 
 ## 4. The saturation
 `tanh(3.1·u)/3.1` at the loop input. The scale is chosen so a sine of amplitude 0.1 (−20 dBFS at EXT IN, in the

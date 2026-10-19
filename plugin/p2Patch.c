@@ -86,6 +86,18 @@ bool p2_patch_read_dump(const char * path, uint8_t dump[P2_DUMP_LENGTH]) {
     return (len == P2_DUMP_LENGTH) && p2_patch_from_syx(dump, len, values, name);
 }
 
+int p2_patch_param_byte(uint32_t paramId, double normalized) {
+    for (int b = 0; b < P2_SOUND_BYTES; b++) {
+        if (gP2SoundBytes[b].paramId == paramId) {
+            long raw = lround(normalized * (gP2Params[paramId].plainMax - gP2Params[paramId].plainMin)) + gP2SoundBytes[b].rawLow;
+
+            return (raw < 0) ? 0 : ((raw > 127) ? 127 : (int)raw);
+        }
+    }
+
+    return -1;
+}
+
 // notes §4: the inverse of p2_patch_from_syx - every byte the plug-in models from its parameter, the rest from
 // the dump the sound came from (or zero), and the name
 void p2_patch_to_syx(const double normalized[kP2ParamCount], const uint8_t * base, const char * name, uint8_t out[P2_DUMP_LENGTH]) {

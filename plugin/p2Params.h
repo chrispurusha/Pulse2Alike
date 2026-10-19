@@ -140,6 +140,9 @@ enum {
     kP2ParamArpStep15,
     kP2ParamArpStep16,
     kP2ParamArpAccent,
+    kP2ParamHiss,
+    kP2ParamHwLink,
+    kP2ParamHwChannel,
     kP2ParamCount
 };
 

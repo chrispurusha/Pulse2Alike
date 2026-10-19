@@ -36,6 +36,7 @@ bool p2_patch_read_dump(const char * path, uint8_t dump[P2_DUMP_LENGTH]);   // f
 // notes §4: parameters back to a dump - unmodelled bytes from base (NULL: zero, addressed to the edit buffer)
 void p2_patch_to_syx(const double normalized[kP2ParamCount], const uint8_t * base, const char * name, uint8_t out[P2_DUMP_LENGTH]);
 bool p2_patch_save_file(const char * path, const uint8_t dump[P2_DUMP_LENGTH]);
+int p2_patch_param_byte(uint32_t paramId, double normalized);   // its sound byte (= its CC value), -1 if none
 
 // notes §2: every sound in the library folder, read once (main thread) so a program change only computes
 #define P2_PATCH_SLOTS    (500)            // P001..P500, as the display numbers them

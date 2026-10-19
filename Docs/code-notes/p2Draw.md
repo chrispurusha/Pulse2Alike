@@ -49,3 +49,7 @@ next save. The file the sound came from is shown greyed after it.
 Below the ARP page's dials, the 16 steps, each three cells: its Event and Time (lists) and Glide (a toggle). A
 step past Pattern Length is greyed. Each step is one parameter, the instrument's own byte (p2Arp notes §2), so
 an edit changes only the bits it shows.
+
+## 8. Link
+The Link button, left of Prev, shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
+plug-in's, through the host's `send`; the panel only reports a failure.

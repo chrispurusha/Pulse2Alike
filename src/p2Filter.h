@@ -35,12 +35,12 @@ typedef struct {
     double k;               // loop feedback
     double mix[6];          // input, loop input, stages 1-4
     double shelfB0, shelfB1, shelfA1;
-    double top1G, top2G;
+    double top2G;
 
     // state
     double stage[4];
     double shelfX, shelfY;
-    double top1, top2;
+    double top2;
 } tP2Filter;
 
 double p2_filter_oscillation_hz(double cutoff);

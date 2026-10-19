@@ -21,6 +21,7 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #include "synthlibPlugin.h"
@@ -34,6 +35,7 @@
 #include "p2Draw.h"
 #include "p2Params.h"
 #include "p2Patch.h"
+#include "p2Hardware.h"
 #ifndef P2_NO_EDITOR
 #include "synthlibPanelView.h"
 #endif
@@ -64,25 +66,26 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC3_LEVEL_FULL            (1.19)   // notes §36: +1.5 dB at level 127
 #define OSC3_LEVEL_EXPONENT        (0.709)
 #define LEVEL_EXPONENT             (0.979)
-#define DETUNE_PITCH_PER_STEP      (2)      // 1/256 semitone units
+#define DETUNE_PITCH_PER_STEP      (2)       // 1/256 semitone units
 #define NOTE_STACK_SIZE            (16)
-#define OVERSAMPLE_DEFAULT         (4)      // notes §33: the Oversampling setting picks 1, 2 or 4
+#define OVERSAMPLE_DEFAULT         (4)       // notes §33: the Oversampling setting picks 1, 2 or 4
 #define DECIMATOR_TAPS             (64)
-#define CONTROL_GLIDE_SECONDS      (0.003)  // notes §7
-#define CONTROL_TICK_SECONDS       (0.001)  // notes §10
+#define CONTROL_GLIDE_SECONDS      (0.003)   // notes §7
+#define CONTROL_TICK_SECONDS       (0.001)   // notes §10
 #define CONTROL_SMOOTH_SECONDS     (0.0003)
-#define KEYTRACK_REFERENCE_NOTE    (64.0)   // measured: keytrack changes nothing at note 64
-#define ENV_CUTOFF_PER_UNIT        (2.0)    // cutoff steps per filter-env amount step from 64, measured
-#define OSC_INTO_FILTER            (0.3)    // notes §4
+#define KEYTRACK_REFERENCE_NOTE    (64.0)    // measured: keytrack changes nothing at note 64
+#define ENV_CUTOFF_PER_UNIT        (2.0)     // cutoff steps per filter-env amount step from 64, measured
+#define OSC_INTO_FILTER            (0.3)     // notes §4
 // notes §25: osc 3 as a control - AC coupled, then into the cutoff, osc 2's level or the drive
-#define OSC3_TO_CUTOFF_STEPS       (125.0)  // per unit of osc 3 (+-1) at full level, fitted to P002
-#define OSC3_TO_DRIVE              (30.0)   // drive units per unit at full level, measured
-#define OSC3_FB_GAIN               (5.7)    // the drive's output back into the mixer, at full level: measured with a saw
-#define ROUTED_MIX_GAIN            (1.8)    // notes §37: osc 3 routed away from the mix
-#define MIX_COUPLING_HZ            (5.0)    // notes §37: the mix reaches the filter AC-coupled
-#define OSC3_TO_LEVEL2             (1.0)    // per unit of osc 3 at full level - notes §25
+#define OSC3_TO_CUTOFF_STEPS       (125.0)   // per unit of osc 3 (+-1) at full level, fitted to P002
+#define OSC3_TO_DRIVE              (30.0)    // drive units per unit at full level, measured
+#define OSC3_FB_GAIN               (5.7)     // the drive's output back into the mixer, at full level: measured with a saw
+#define ROUTED_MIX_GAIN            (1.8)     // notes §37: osc 3 routed away from the mix
+#define MIX_SLEW_PER_SECOND        (15000.0) // notes §40: the filter input's slew, fitted to saws
+#define MIX_COUPLING_HZ            (5.0)     // notes §37: the mix reaches the filter AC-coupled
+#define OSC3_TO_LEVEL2             (1.0)     // per unit of osc 3 at full level - notes §25
 #define OSC3_COUPLING_HZ           (14.0)
-#define OUTPUT_GAIN                (3.926)  // notes §19: the instrument's own level
+#define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
 
 // notes §13: the mod matrix's targets, in the instrument's list order
 enum {
@@ -131,6 +134,9 @@ enum {
 #define NOISE_LEVEL              (1.585)    // notes §34: +4 dB, measured against the saw
 #define NOISE_REFERENCE_RATE     (768000.0) // notes §34: the internal rate NOISE_LEVEL was measured at
 #define NOISE_BANDWIDTH_HZ       (22000.0)
+#define NOISE_COLOUR_HZ          (5715.0)   // notes §34: the noise is darker than white, measured on the noise itself
+#define HISS_INTO_FILTER         (1.19e-3)  // notes §38: the instrument's hiss, measured against a saw
+#define HISS_AFTER_FILTER        (2.03e-4)
 #define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
 #define PULSE_LEVEL              (0.525)    // notes §30: a pulse against the saw, measured
 #define LFO_SLOW_SHAPES_FROM     (5)        // sSIN on: free-running, never restarted by a note
@@ -214,8 +220,15 @@ typedef struct {
     double      decimator[DECIMATOR_TAPS];
     double      history[DECIMATOR_TAPS];
     uint32_t    historyPos;
-    uint32_t    noise;       // xorshift state
-    double      noiseLp[4];  // notes §34: the band limit, two biquad states
+    uint32_t    noise;                 // xorshift state
+    double      noiseLp[4];            // notes §34: the band limit, two biquad states
+    double      noiseColour;
+    double      hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
+    bool        hwValid;
+    bool        hwDumpDue;
+    double      hwLastDump;
+    double      slewed;      // notes §40
+    double      hissLp[8];   // notes §38: the same, for the two hiss sources
 } tP2Plugin;
 
 static double plain(const tP2Plugin * p, uint32_t id) {
@@ -958,6 +971,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     double         rateIn    = p->sampleRate * p->oversample;
     double         noise     = NOISE_LEVEL * level_gain(p, kP2ParamNoiseLevel) * sqrt(rateIn / NOISE_REFERENCE_RATE);
     double         noiseLp[5];
+    double         colour    = 1.0 - exp(-2.0 * M_PI * NOISE_COLOUR_HZ / rateIn);
+    double         hiss      = (plain_int(p, kP2ParamHiss) != 0) ? sqrt(rateIn / NOISE_REFERENCE_RATE) : 0.0;
     int            voices    = para_voices(p);
     bool           unison    = unison_mode(p) != 0;
     double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL;   // notes §12
@@ -1006,8 +1021,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
         update_filter(p);
 
         for (int o = 0; o < p->oversample; o++) {
-            double osc3 = p2_dco_next(&p->dco[2]);
-            bool   sync = plain_int(p, kP2ParamOsc3Sync) != 0;
+            double osc3    = p2_dco_next(&p->dco[2]);
+            bool   sync    = plain_int(p, kP2ParamOsc3Sync) != 0;
 
             p->dco[1].syncHold = sync;
 
@@ -1015,15 +1030,19 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 p2_dco_restart(&p->dco[1]);
             }
             // notes §34: the floor a self-oscillation starts from; band-limited, so the level is the same at any rate
-            double osc  = band_limit(band_limit((noise + NOISE_FLOOR) * white_noise(p), noiseLp, &p->noiseLp[0]), noiseLp, &p->noiseLp[2]);
-            double cv3  = osc3 - p->osc3Coupled;                  // notes §25
+            double white   = band_limit(band_limit((noise + NOISE_FLOOR) * white_noise(p), noiseLp, &p->noiseLp[0]), noiseLp, &p->noiseLp[2]);
+
+            p->noiseColour    += colour * (white - p->noiseColour);
+            double sources = p->noiseColour;
+            double osc     = 0.0;                   // the oscillators alone
+            double cv3     = osc3 - p->osc3Coupled; // notes §25
 
             p->osc3Coupled    += coupling * cv3;
-            double amp2 = level2;
+            double amp2    = level2;
 
             if (feedback) {
                 // notes §25: subtracted, as on the instrument; the seed is the noise floor a loop starts from
-                osc -= level3 * OSC3_FB_GAIN * p->driveOut;
+                sources -= level3 * OSC3_FB_GAIN * p->driveOut;
             } else if (routing == 0) {
                 osc += osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0);
             } else if (routing == 1) {
@@ -1062,13 +1081,24 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 }
             }
             // notes §6: oscillators and filter run all the time; the amp envelope is the VCA, after the filter
+            osc                       = sources - osc; // notes §39: the oscillators' polarity, as the instrument's
+
+            if (hiss > 0.0) {
+                osc += band_limit(band_limit(HISS_INTO_FILTER * hiss * white_noise(p), noiseLp, &p->hissLp[0]), noiseLp, &p->hissLp[2]);
+            }
             double coupled  = osc - p->mixCoupled;
 
             p->mixCoupled            += mixHp * coupled;
-            double filtered = p2_filter_process(&p->filter, mixGain * coupled) - p->filterCoupled;
+            double step     = MIX_SLEW_PER_SECOND / rateIn;   // notes §40
+
+            p->slewed                += fmax(-step, fmin(step, (mixGain * coupled) - p->slewed));
+            double filtered = p2_filter_process(&p->filter, p->slewed) - p->filterCoupled;
 
             p->filterCoupled         += mixHp * filtered;
 
+            if (hiss > 0.0) {
+                filtered += band_limit(band_limit(HISS_AFTER_FILTER * hiss * white_noise(p), noiseLp, &p->hissLp[4]), noiseLp, &p->hissLp[6]);
+            }
             p->driveOut               = p2_drive_process(&p->drive, (tP2DriveCurve)curve,
                                                          drive + ((routing == 3) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);
             double y        = p->driveOut * p->vca;
@@ -1113,7 +1143,8 @@ static void program_change(tP2Plugin * p, int program) {
     }
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
-        if (  (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamMaster)
+        if (  (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamHwLink)
+           || (id == kP2ParamHwChannel) || (id == kP2ParamMaster)
            || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
             continue;
         }
@@ -1192,10 +1223,11 @@ static void p2_init_patch(void * user);
 static void p2_edit_param(void * user, uint32_t id, double normalized);
 static const char * p2_sound_name(void * user);
 static void p2_rename(void * user, const char * name);
+static int p2_send_to_hardware(void * user);
 
 static const tP2PatchHost gPatchHost = {
     .load = p2_load_patch, .save   = p2_save_patch, .init = p2_init_patch, .edit = p2_edit_param,
-    .name = p2_sound_name, .rename = p2_rename
+    .name = p2_sound_name, .rename = p2_rename,     .send = p2_send_to_hardware
 };
 
 static void p2_panel_init(void) {
@@ -1206,7 +1238,8 @@ static void p2_panel_init(void) {
 
 // What a sound carries: everything but the plug-in's own settings and the program change's two
 static bool sound_param(uint32_t id) {
-    return (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamMaster)
+    return (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamHwLink)
+           && (id != kP2ParamHwChannel) && (id != kP2ParamMaster)
            && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));
 }
 
@@ -1265,11 +1298,11 @@ static void name_from_path(const char * path, char name[P2_SOUND_NAME_LENGTH + 1
     name[k] = '\0';
 }
 
-static bool p2_save_patch(void * user, const char * path) {
+// The sound as it is now, as a dump: the host's values over the dump it came from
+static void current_dump(void * user, const char * path, uint8_t dump[P2_DUMP_LENGTH]) {
     tP2Plugin * p = (tP2Plugin *)user;
     double      values[kP2ParamCount];
     char        name[P2_SOUND_NAME_LENGTH + 1];
-    uint8_t     dump[P2_DUMP_LENGTH];
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         values[id] = synthlib_plugin_param_value(user, id);
@@ -1281,13 +1314,23 @@ static bool p2_save_patch(void * user, const char * path) {
         name_from_path(path, name);
     }
     p2_patch_to_syx(values, p->haveBase ? p->baseDump : NULL, name, dump);
+}
+
+static bool p2_save_patch(void * user, const char * path) {
+    tP2Plugin * p = (tP2Plugin *)user;
+    char        name[P2_SOUND_NAME_LENGTH + 1];
+    uint8_t     dump[P2_DUMP_LENGTH];
+
+    current_dump(user, path, dump);
+    memcpy(name, dump + 7 + P2_SOUND_NAME_OFFSET, P2_SOUND_NAME_LENGTH);
+    name[P2_SOUND_NAME_LENGTH] = '\0';
 
     if (!p2_patch_save_file(path, dump)) {
         synthlib_log_line("could not write %s", path);
         return false;
     }
     memcpy(p->baseDump, dump, sizeof(dump));
-    p->haveBase = true;
+    p->haveBase                = true;
     snprintf(p->patchPath, sizeof(p->patchPath), "%s", path);
     p2_patch_cache_store(p2_patch_library_number(path), dump, path);   // a program change then plays it
     synthlib_log_line("saved \"%s\" to %s", name, path);
@@ -1324,6 +1367,117 @@ static void p2_load_patch(void * user, const char * path) {
     synthlib_log_line("loaded \"%s\" from %s", name, path);
 }
 
+// ---- the instrument, over USB MIDI (notes §41) --------------------------------------------------
+
+#define HW_DUMP_INTERVAL       (0.1) // seconds between dumps while something without a CC is moving
+#define HW_CHANGES_FOR_DUMP    (8)   // more changes than this at once (a new sound) go as one dump
+
+// The parameters the instrument takes by CC, as the measurement rig drives it
+static const struct {
+    uint32_t id;
+    uint8_t  cc;
+} kHwCc[] = {
+    {kP2ParamOsc1Shape,       34}, {kP2ParamOsc1Width,   35}, {kP2ParamOsc1Semitone,     70}, {kP2ParamOsc1Detune,      71},
+    {kP2ParamOsc1Keytrack,    73}, {kP2ParamOsc1Level,   45}, {kP2ParamOsc2Shape,        38}, {kP2ParamOsc2Width,       39},
+    {kP2ParamOsc2Semitone,    36}, {kP2ParamOsc2Detune,  37}, {kP2ParamOsc2Keytrack,     40}, {kP2ParamOsc2Level,       46},
+    {kP2ParamOsc3Shape,       44}, {kP2ParamOsc3Routing, 72}, {kP2ParamOsc3Semitone,     42}, {kP2ParamOsc3Detune,      43},
+    {kP2ParamOsc3Sync,        41}, {kP2ParamOsc3Level,   47}, {kP2ParamNoiseLevel,       48}, {kP2ParamCutoff,          50},
+    {kP2ParamResonance,       56}, {kP2ParamFilterType,  49}, {kP2ParamFilterEnvAmount,  52}, {kP2ParamFilterKeytrack,  51},
+    {kP2ParamFilterVelocity,  53}, {kP2ParamDrive,       76}, {kP2ParamDriveCurve,       77}, {kP2ParamPan,             59},
+    {kP2ParamVolume,          57}, {kP2ParamAmpVelocity, 58}, {kP2ParamEnvFAttack,       14}, {kP2ParamEnvFDecay,       15},
+    {kP2ParamEnvFSustain,     16}, {kP2ParamEnvFRelease, 17}, {kP2ParamEnvFLoop,         74}, {kP2ParamEnvFTrigger,     29},
+    {kP2ParamEnvAAttack,      18}, {kP2ParamEnvADecay,   19}, {kP2ParamEnvASustain,      20}, {kP2ParamEnvARelease,     21},
+    {kP2ParamEnvALoop,        75}, {kP2ParamEnvATrigger, 31}, {kP2ParamGlideRate,         5}, {kP2ParamGlideMode,       62},
+    {kP2ParamArpActive,       79}, {kP2ParamArpRange,    80}, {kP2ParamArpTempo,         81}, {kP2ParamArpClock,        82},
+    {kP2ParamArpMode,         83}, {kP2ParamArpStep,     84}, {kP2ParamArpSwing,         85}, {kP2ParamArpDelay,        86},
+    {kP2ParamArpLength,       87}, {kP2ParamArpAccent,   88}, {kP2ParamUnisonDetune,    102}, {kP2ParamOsc1Fade,       103},
+    {kP2ParamOsc2Fade,       104},
+};
+
+static int hw_cc(uint32_t id) {
+    for (size_t i = 0; i < (sizeof(kHwCc) / sizeof(kHwCc[0])); i++) {
+        if (kHwCc[i].id == id) {
+            return kHwCc[i].cc;
+        }
+    }
+
+    return -1;
+}
+
+static double now_seconds(void) {
+    struct timespec t;
+
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (t.tv_nsec * 1e-9);
+}
+
+static int p2_send_to_hardware(void * user) {
+    tP2Plugin * p = (tP2Plugin *)user;
+    uint8_t     dump[P2_DUMP_LENGTH];
+
+    current_dump(user, p->patchPath, dump);
+    return (int)p2_hardware_send_to_edit_buffer(dump);
+}
+
+// notes §41: run from the editor's frame - every sound parameter that moved since the last send goes by its CC,
+// or, if it has none (or a whole new sound arrived), the sound goes as one edit-buffer dump, at most every 0.1 s
+static void hardware_follow(tP2Plugin * p, void * user) {
+    tP2HardwareResult result  = eP2HardwareSent;
+    uint8_t           ccs[kP2ParamCount][3];
+    int               ccCount = 0;
+    int               changes = 0;
+    int               channel = (int)lround(synthlib_plugin_param_value(user, kP2ParamHwChannel) * 15.0);
+
+    if (synthlib_plugin_param_value(user, kP2ParamHwLink) < 0.5) {
+        p->hwValid = false;
+        return;
+    }
+    p->hwDumpDue |= !p->hwValid;
+
+    for (uint32_t id = 0; id < kP2ParamCount; id++) {
+        double v    = synthlib_plugin_param_value(user, id);
+
+        if (!sound_param(id) || (p->hwValid && (v == p->hwSent[id]))) {
+            continue;
+        }
+        int    cc   = hw_cc(id);
+        int    byte = p2_patch_param_byte(id, v);
+
+        p->hwSent[id] = v;
+        changes++;
+
+        if ((cc < 0) || (byte < 0)) {
+            p->hwDumpDue = true;
+        } else {
+            ccs[ccCount][0] = (uint8_t)(0xB0 | channel);
+            ccs[ccCount][1] = (uint8_t)cc;
+            ccs[ccCount][2] = (uint8_t)byte;
+            ccCount++;
+        }
+    }
+
+    p->hwValid    = true;
+    p->hwDumpDue |= (changes > HW_CHANGES_FOR_DUMP);
+
+    if (p->hwDumpDue) {
+        if ((now_seconds() - p->hwLastDump) >= HW_DUMP_INTERVAL) {
+            result        = (tP2HardwareResult)p2_send_to_hardware(user);
+            p->hwDumpDue  = false;
+            p->hwLastDump = now_seconds();
+        }
+    } else {
+        for (int i = 0; (i < ccCount) && (result == eP2HardwareSent); i++) {
+            result = p2_hardware_send(ccs[i], 3);
+        }
+    }
+
+    if (result != eP2HardwareSent) {
+        synthlib_plugin_param_edited(user, kP2ParamHwLink, 0.0);
+        p->hwValid = false;
+        p2_draw_hardware_problem((int)result);
+    }
+}
+
 static void p2_panel_sync(void * user) {
     tP2Plugin * p      = (tP2Plugin *)user;
     int         number = atomic_load(&p->programShown);
@@ -1338,6 +1492,7 @@ static void p2_panel_sync(void * user) {
         p->programSynced = number;
     }
     p2_draw_set_patch(p->patchPath);      // notes §24: this instance's, every sync
+    hardware_follow(p, user);
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         p2_draw_set_value(id, synthlib_plugin_param_value(user, id));

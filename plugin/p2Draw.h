@@ -81,6 +81,7 @@ typedef struct {
     void (*edit)(void * user, uint32_t paramId, double normalized);
     const char * (*name)(void * user);                            // the sound's name, as shown
     void (*rename)(void * user, const char * name);               // notes §6: an edited name, on commit
+    int (*send)(void * user);                                     // notes §8: to the instrument's edit buffer
 } tP2PatchHost;
 
 void p2_draw_set_host(const tP2PatchHost * host); // static storage
@@ -92,6 +93,8 @@ void p2_draw_load_number(int number);
 bool p2_draw_has_patch_file(void);
 void p2_draw_save_patch(bool chooseFile);         // false: over the current file, after a confirm
 void p2_draw_init_patch(void);
+void p2_draw_send_to_hardware(void);
+void p2_draw_hardware_problem(int result);   // a tP2HardwareResult that is not eP2HardwareSent
 double p2_draw_value(uint32_t paramId);
 void p2_draw_edit(uint32_t paramId, double normalized);
 

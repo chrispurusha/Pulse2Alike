@@ -107,6 +107,8 @@ SOURCES=(
     "$HERE/plugin/p2Menu.c"
     "$HERE/plugin/p2Params.c"
     "$HERE/plugin/p2Patch.c"
+    "$HERE/plugin/p2Hardware.c"
+    "$SL/src/synthlibMidi.c"
     "$HERE/plugin/p2Plugin.c"
     "$SL/plugin/pluginStubs.c"
     "$SL/plugin/synthlibPluginState.c"
