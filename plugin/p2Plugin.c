@@ -60,8 +60,10 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define P2A_AU_BUNDLE_ID           "com.chrispurusha.pulse2alike.au"
 
 #define DCO_COUNT                  (3)
-#define LEVEL_SILENT_BELOW         (12.6)   // notes §9
-#define LEVEL_EXPONENT             (0.864)
+#define LEVEL_SILENT_BELOW         (11.41)  // notes §9
+#define OSC3_LEVEL_FULL            (1.19)   // notes §36: +1.5 dB at level 127
+#define OSC3_LEVEL_EXPONENT        (0.709)
+#define LEVEL_EXPONENT             (0.979)
 #define DETUNE_PITCH_PER_STEP      (2)      // 1/256 semitone units
 #define NOTE_STACK_SIZE            (16)
 #define OVERSAMPLE_DEFAULT         (4)      // notes §33: the Oversampling setting picks 1, 2 or 4
@@ -76,6 +78,9 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC3_TO_CUTOFF_STEPS       (125.0)  // per unit of osc 3 (+-1) at full level, fitted to P002
 #define OSC3_TO_DRIVE              (30.0)   // drive units per unit at full level, measured
 #define OSC3_FB_GAIN               (5.7)    // the drive's output back into the mixer, at full level: measured with a saw
+#define ROUTED_MIX_GAIN            (1.8)    // notes §37: osc 3 routed away from the mix
+#define MIX_COUPLING_HZ            (5.0)    // notes §37: the mix reaches the filter AC-coupled
+#define OSC3_TO_LEVEL2             (1.0)    // per unit of osc 3 at full level - notes §25
 #define OSC3_COUPLING_HZ           (14.0)
 #define OUTPUT_GAIN                (3.926)  // notes §19: the instrument's own level
 
@@ -117,31 +122,34 @@ enum {
     eMathMax,
     MATH_COUNT
 };
-#define eModMathFirst           (25)
-#define DELAY_LINE_MS           (1024)
+#define eModMathFirst            (25)
+#define DELAY_LINE_MS            (1024)
 
-#define PARA8_VOICE_LEVEL       (0.263) // notes §12: one voice against the same pulse played mono, measured
-#define PARA4_VOICE_LEVEL       (0.363)
-#define NOISE_FLOOR             (1e-5)  // about -100 dB: the analogue floor
-#define NOISE_LEVEL             (1.585) // notes §34: +4 dB, measured against the saw
-#define PULSE_LEVEL             (0.525) // notes §30: a pulse against the saw, measured
-#define LFO_SLOW_SHAPES_FROM    (5)     // sSIN on: free-running, never restarted by a note
+#define PARA8_VOICE_LEVEL        (0.263)    // notes §12: one voice against the same pulse played mono, measured
+#define PARA4_VOICE_LEVEL        (0.363)
+#define NOISE_FLOOR              (1e-5)     // about -100 dB: the analogue floor
+#define NOISE_LEVEL              (1.585)    // notes §34: +4 dB, measured against the saw
+#define NOISE_REFERENCE_RATE     (768000.0) // notes §34: the internal rate NOISE_LEVEL was measured at
+#define NOISE_BANDWIDTH_HZ       (22000.0)
+#define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
+#define PULSE_LEVEL              (0.525)    // notes §30: a pulse against the saw, measured
+#define LFO_SLOW_SHAPES_FROM     (5)        // sSIN on: free-running, never restarted by a note
 
 // notes §21: unison - 8 oscillators, detune × 1.25 / 256 semitone apart, symmetric about the note
-#define UNISON_OSCS             (8)
-#define UNISON_SPACING          (1.25)  // 1/256-semitone units per step of Unison Detune
-#define UNISON_VOICE_GAIN       (0.19)  // each oscillator, so the eight sum near the measured level
+#define UNISON_OSCS              (8)
+#define UNISON_SPACING           (1.25) // 1/256-semitone units per step of Unison Detune
+#define UNISON_VOICE_GAIN        (0.19) // each oscillator, so the eight sum near the measured level
 
 // notes §12: a paraphonic voice - one pulse (PARA-8) or two (PARA-4), fading on its own into the shared filter
-#define PARA_VOICES_MAX         (8)
-#define PARA_FADE_SECONDS       (0.02)    // the fade in, which Fade does not change
+#define PARA_VOICES_MAX          (8)
+#define PARA_FADE_SECONDS        (0.02)   // the fade in, which Fade does not change
 // notes §26: a released voice decays as a release stage of R - 5.5 - 0.61 (127 - Fade)
-#define FADE_RELEASE_OFFSET     (5.5)
-#define FADE_RELEASE_SLOPE      (0.61)
-#define FADE_SILENT             (1e-4)
-#define SHAPE_PARA8             (8)
-#define KEYTRACK_OFF_NOTE       (60.0)       // notes §31
-#define SHAPE_PARA4             (9)
+#define FADE_RELEASE_OFFSET      (5.5)
+#define FADE_RELEASE_SLOPE       (0.61)
+#define FADE_SILENT              (1e-4)
+#define SHAPE_PARA8              (8)
+#define KEYTRACK_OFF_NOTE        (60.0)      // notes §31
+#define SHAPE_PARA4              (9)
 
 typedef struct {
     int      note;          // -1 when free
@@ -166,6 +174,8 @@ typedef struct {
     double      driveOut;            // notes §25: the last drive output, which osc 3\'s FB shape feeds back
     double      releaseVelocity;     // notes §28: the last note-off\'s
     bool        sustained[128];      // notes §28: released while the pedal was down
+    double      mixCoupled;          // notes §37
+    double      filterCoupled;
     double      osc3Coupled;         // notes §25: the coupling capacitor on osc 3\'s control path
     uint32_t    voiceClock;          // allocation order, for stealing the most recent
 
@@ -205,6 +215,7 @@ typedef struct {
     double      history[DECIMATOR_TAPS];
     uint32_t    historyPos;
     uint32_t    noise;       // xorshift state
+    double      noiseLp[4];  // notes §34: the band limit, two biquad states
 } tP2Plugin;
 
 static double plain(const tP2Plugin * p, uint32_t id) {
@@ -363,7 +374,42 @@ static double level_gain(const tP2Plugin * p, uint32_t id) {
                                                                  ((id == kP2ParamOsc3Level) ? eModOsc3Level : eModNoiseLevel));
     double cc     = fmin(127.0, plain(p, id) + p->mod[target]);
 
-    return (cc <= LEVEL_SILENT_BELOW) ? 0.0 : pow((cc - LEVEL_SILENT_BELOW) / (127.0 - LEVEL_SILENT_BELOW), LEVEL_EXPONENT);
+    if (cc <= LEVEL_SILENT_BELOW) {
+        return 0.0;
+    }
+    double x      = (cc - LEVEL_SILENT_BELOW) / (127.0 - LEVEL_SILENT_BELOW);
+
+    // notes §36: osc 3 is louder than osc 1 and 2, and less tapered
+    return pow(x, LEVEL_EXPONENT);
+}
+
+// notes §36: osc 3 IN THE MIX is louder and less tapered than osc 1 and 2; its control routings keep the shared law,
+// which their depths were measured with
+static double osc3_mix_gain(const tP2Plugin * p) {
+    double cc = fmin(127.0, plain(p, kP2ParamOsc3Level) + p->mod[eModOsc3Level]);
+
+    return (cc <= LEVEL_SILENT_BELOW) ? 0.0 : OSC3_LEVEL_FULL * pow((cc - LEVEL_SILENT_BELOW) / (127.0 - LEVEL_SILENT_BELOW), OSC3_LEVEL_EXPONENT);
+}
+
+// notes §34: a Butterworth low-pass at NOISE_BANDWIDTH_HZ (RBJ), b = {b0, b1, b0}, a = {a1, a2}
+static void noise_band_limit_coefficients(double rate, double c[5]) {
+    double w     = 2.0 * M_PI * fmin(NOISE_BANDWIDTH_HZ, 0.45 * rate) / rate;
+    double alpha = sin(w) / (2.0 * M_SQRT1_2);
+    double a0    = 1.0 + alpha;
+
+    c[0] = (1.0 - cos(w)) / (2.0 * a0);
+    c[1] = (1.0 - cos(w)) / a0;
+    c[2] = c[0];
+    c[3] = -2.0 * cos(w) / a0;
+    c[4] = (1.0 - alpha) / a0;
+}
+
+static double band_limit(double x, const double c[5], double * z) {
+    double y = (c[0] * x) + z[0];
+
+    z[0] = (c[1] * x) - (c[3] * y) + z[1];
+    z[1] = (c[2] * x) - (c[4] * y);
+    return y;
 }
 
 static double white_noise(tP2Plugin * p) {
@@ -617,25 +663,27 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     if (p == NULL) {
         return NULL;
     }
-    p->sampleRate = 48000.0;
-    p->noise      = 0x9E3779B9u;
-    p->oversample = OVERSAMPLE_DEFAULT;
+    p->sampleRate          = 48000.0;
+    p->noise               = 0x9E3779B9u;
+    p->oversample          = OVERSAMPLE_DEFAULT;
     free_running_phases(p);
     snprintf(p->soundName, sizeof(p->soundName), "INIT");
     p2_arp_reset(&p->arp);
+    p->filterEnv.timeScale = FILTER_ENV_TIME_SCALE;
+    p->ampEnv.timeScale    = 1.0;
 
     for (uint32_t i = 0; i < kP2ParamCount; i++) {
         p->param[i] = gP2Params[i].defaultNormalized;
     }
 
-    p->oversample = 1 << plain_int(p, kP2ParamOversample);
+    p->oversample          = 1 << plain_int(p, kP2ParamOversample);
     build_decimator(p);
     p2_patch_cache_load();
     p2_filter_init(&p->filter, p->sampleRate * p->oversample);
     p2_drive_init(&p->drive, p->sampleRate * p->oversample);
     glide_controls(p, true);
-    p->cutoffNow  = p->cutoffTarget = p->cutoff;
-    p->lastNote   = KEYTRACK_REFERENCE_NOTE;
+    p->cutoffNow           = p->cutoffTarget = p->cutoff;
+    p->lastNote            = KEYTRACK_REFERENCE_NOTE;
     update_filter(p);
 
     synthlib_log_line("created - Pulse2Alike %s", P2A_VERSION_STRING);
@@ -903,9 +951,13 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     bool           feedback  = shape3 == 4;
     double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
     int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
+    double         mixHp     = 1.0 - exp(-2.0 * M_PI * MIX_COUPLING_HZ / (p->sampleRate * p->oversample));
+    double         mixGain   = OSC_INTO_FILTER * ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);
     int            curve     = plain_int(p, kP2ParamDriveCurve);
     double         drive     = plain(p, kP2ParamDrive) + p->mod[eModDrive];
-    double         noise     = NOISE_LEVEL * level_gain(p, kP2ParamNoiseLevel);
+    double         rateIn    = p->sampleRate * p->oversample;
+    double         noise     = NOISE_LEVEL * level_gain(p, kP2ParamNoiseLevel) * sqrt(rateIn / NOISE_REFERENCE_RATE);
+    double         noiseLp[5];
     int            voices    = para_voices(p);
     bool           unison    = unison_mode(p) != 0;
     double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL;   // notes §12
@@ -918,6 +970,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     double         master    = pow(plain(p, kP2ParamMaster) / 127.0, 2.0); // notes §19
     int            tick      = steps ? (int)lround(CONTROL_TICK_SECONDS * p->sampleRate) : 1;
     double         smooth    = 1.0 - exp(-1.0 / (CONTROL_SMOOTH_SECONDS * p->sampleRate));
+
+    noise_band_limit_coefficients(rateIn, noiseLp);
 
     if ((curve == eP2DriveFx) && !steps) {
         curve = eP2DriveNone;      // notes §25: FX is silent on the instrument, a measured quirk
@@ -960,7 +1014,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             if (sync && p->dco[2].wrapped) {          // notes §22: osc 3's edge restarts osc 2
                 p2_dco_restart(&p->dco[1]);
             }
-            double osc  = (noise + NOISE_FLOOR) * white_noise(p); // notes §34: the floor a self-oscillation starts from
+            // notes §34: the floor a self-oscillation starts from; band-limited, so the level is the same at any rate
+            double osc  = band_limit(band_limit((noise + NOISE_FLOOR) * white_noise(p), noiseLp, &p->noiseLp[0]), noiseLp, &p->noiseLp[2]);
             double cv3  = osc3 - p->osc3Coupled;                  // notes §25
 
             p->osc3Coupled    += coupling * cv3;
@@ -970,9 +1025,9 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 // notes §25: subtracted, as on the instrument; the seed is the noise floor a loop starts from
                 osc -= level3 * OSC3_FB_GAIN * p->driveOut;
             } else if (routing == 0) {
-                osc += level3 * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0);
+                osc += osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0);
             } else if (routing == 1) {
-                amp2 = fmax(0.0, level2 + (level3 * cv3));
+                amp2 = fmax(0.0, level2 + (level3 * cv3 * OSC3_TO_LEVEL2));
             } else if (routing == 2) {
                 p2_filter_set(&p->filter, fmin(127.0, fmax(0.0, p->cutoffNow + (level3 * cv3 * OSC3_TO_CUTOFF_STEPS))),
                               fmin(127.0, fmax(0.0, p->resonance + p->mod[eModResonance])), (tP2FilterMode)plain_int(p, kP2ParamFilterType));
@@ -1007,7 +1062,12 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 }
             }
             // notes §6: oscillators and filter run all the time; the amp envelope is the VCA, after the filter
-            double filtered = p2_filter_process(&p->filter, OSC_INTO_FILTER * osc);
+            double coupled  = osc - p->mixCoupled;
+
+            p->mixCoupled            += mixHp * coupled;
+            double filtered = p2_filter_process(&p->filter, mixGain * coupled) - p->filterCoupled;
+
+            p->filterCoupled         += mixHp * filtered;
 
             p->driveOut               = p2_drive_process(&p->drive, (tP2DriveCurve)curve,
                                                          drive + ((routing == 3) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);

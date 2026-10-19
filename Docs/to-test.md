@@ -17,3 +17,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P004 at several notes against the plug-in (Keytrack OFF itself is confirmed)
 - Program change to the current program is ignored (host re-sends it)
 - Arpeggiator in Live, against the instrument: modes, Range, Clock, Step Duration, Swing, HOLD, following Live's tempo and bars; a step pattern with OFF/SOFT/HARD/EVEN/ODD/OCT+/1ST/RESET (P015 DOPPLER uses HOLD)
+- P006 by ear again (osc 3 on LEVEL2 three times deeper, osc 3 louder: its tone now stands against the noise as the instrument's does)

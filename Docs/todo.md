@@ -2,6 +2,11 @@
 
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
+## First
+- P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet
+- P011: compare at a fixed phase - its slow LFO (sTRI) runs free on the instrument, so no take starts where the plug-in does
+- P015: compare with a clean arpeggiator - HOLD keeps the notes latched from the take before; release the latch (Arp OFF, then ON) before each take
+
 ## Rig
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture
 - Read INPUT GAIN off the panel and record it with the EXT captures; sweep the EXT level per step

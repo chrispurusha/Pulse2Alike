@@ -107,6 +107,7 @@ double p2_env_vca_gain(double e) {
 }
 
 void p2_env_reset(tP2Env * e) {
+    e->timeScale  = (e->timeScale > 0.0) ? e->timeScale : 1.0;
     e->stage      = eP2EnvIdle;
     e->level      = 0.0;
     e->phase      = 0.0;
@@ -146,7 +147,7 @@ double p2_env_step(tP2Env * e, double dt, double attack, double decay, double su
         {
             double s      = p2_env_sustain_level(sustain);
             double target = e->rising ? 1.0 : s;
-            double tau    = p2_env_decay_seconds(decay) / -log(E_AT_MINUS_40_DB);
+            double tau    = e->timeScale * p2_env_decay_seconds(decay) / -log(E_AT_MINUS_40_DB);
 
             e->level = target + ((e->level - target) * exp(-dt / tau));
 
@@ -163,7 +164,7 @@ double p2_env_step(tP2Env * e, double dt, double attack, double decay, double su
 
         case eP2EnvRelease:
         {
-            double tau = p2_env_decay_seconds(release) / -log(E_AT_MINUS_40_DB);
+            double tau = e->timeScale * p2_env_decay_seconds(release) / -log(E_AT_MINUS_40_DB);
 
             e->level *= exp(-dt / tau);
 

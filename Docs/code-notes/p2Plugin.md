@@ -158,8 +158,8 @@ osc 3 as an 8 Hz square on the self-oscillating filter: each edge kicks the cuto
 30 ms. The depth is 125 cutoff steps per unit of osc 3 (+-1) at full level, scaled by the oscillator level curve. The
 square's kicks read 28 off the self-oscillating filter's pitch track, which cannot follow a kick that decays in
 11 ms; P002's audio-rate FM (osc 3 four octaves up on VCF) matched the instrument only at 112-168 (brightness within
-3 dB at notes 48/60/72 at 125). LEVEL2 measured: osc 2's level plus osc 3's
-level x osc 3, floored at zero (8 dB between the states at level 32, as that predicts; silent in one state from 64).
+3 dB at notes 48/60/72 at 125). LEVEL2: osc 2's level plus osc 3's level x osc 3, floored at zero, as the 8 Hz square measured (8 dB apart at level
+32). A depth of 3, fitted to one band of one take of P006, was tried and reverted: CT heard P006 go further wrong.
 DRIVE: 30 drive units per unit of osc 3 at full level, measured (findings, "osc 3 to DRIVE"). FB, osc 3's fifth
 shape, SUBTRACTS the drive's output from the mixer (negative feedback, findings "FB"), at 5.7 × osc 3's level:
 with a saw that matches the instrument's level within 1.4 dB at every FB. The instrument also sings with FB alone
@@ -230,6 +230,13 @@ A floor of white noise about 100 dB down is always in the mix, as the instrument
 or the FB loop can start to oscillate with every source off (a patch playing the self-oscillating filter as a sine
 was silent without it).
 
+The noise is band-limited (two Butterworth sections at 22 kHz) and its amplitude scales with the square root of the
+internal rate, so its density - what is heard - is the level above at any host rate and oversampling. White at the
+internal rate, as it first was, it carried most of its power above the audio band: at a 48 kHz host the audible noise
+came out 6 dB over the 192 kHz renders it was measured in, and the ultrasonic power drove the filter's saturation,
+pulling the oscillators down 2.4 dB at P006's level 104 (3.4 dB at 127). The instrument shows neither: its triangle
+holds its level and harmonics with the noise added.
+
 A paraphonic voice is quieter than the same pulse played mono (measured, one note, PW 127): PARA-8 11.6 dB down
 (0.263), PARA-4 8.8 dB (0.363). P010 had come out 10 dB loud.
 
@@ -238,3 +245,26 @@ The instrument's DCOs never reset, so two of them slightly detuned (P001: osc 3 
 1.8 s) start a note anywhere in their beat. Each instance starts its oscillators at its own phases, as the
 instrument would be. P001's "darker sustain" in the comparison was its beat caught at a different point (the
 instrument's dip at 0.56 s, the plug-in's at 0.9 s), not a fault.
+
+## 36. The oscillator level law, as the engine needs it
+((Level − 11.41) / (127 − 11.41))^0.979. The instrument's own law, read off its output, is ((Level − 12.6) / 114.4)^0.864;
+the engine's soft saturation at the filter input squeezes the range a little, so with that law a saw at level
+16-48 came out 1-1.7 dB loud (and patches mixing two or three oscillators at middle levels 2-4 dB loud). Refitted so
+the engine's OUTPUT follows the instrument's from level 16 to 127, within 0.16 dB (law_level captures).
+Osc 3 in the mix is louder and less tapered than osc 1 and 2 (a saw alone, the same session: +1.5 dB at level 127,
++2.6 dB at 58 against the shared law; osc 2 matches osc 1): 1.19 x ((Level - 11.41) / 115.59)^0.709. Its control
+routings (LEVEL2, VCF, DRIVE) keep the shared law: their depths were measured and fitted with it, and giving them the
+louder one deepened P006's LEVEL2 modulation unmeasured.
+
+## 37. The mix into the filter: routing gain and coupling
+With osc 3 routed anywhere but MIX (LEVEL2, VCF or DRIVE), the instrument's whole oscillator mix - osc 1, osc 2 and
+the noise alike - reaches the filter 1.8 times as hot, even with osc 3's level at 0: +5.1 dB for a quiet saw, falling
+to +3.6 dB at level 127 as the filter's input saturates and rounds the wave (the harmonics fall 2-3 dB). The filter's
+own saturation reproduces that compression within 0.3 dB and its harmonics within 1 dB, so the gain is all the
+engine adds. P006 (osc 3 on LEVEL2) had come out 5 dB quiet in every oscillator.
+
+The mix reaches the filter AC-coupled, and the filter's output is coupled again before the drive and the VCA, both at
+5 Hz. Osc 3 on LEVEL2 near osc 2's pitch makes a difference tone of a fraction of a hertz, and an asymmetric wave
+through the filter's saturation leaves DC; the instrument's output carries neither (60 dB less below 20 Hz than the
+engine had), and the engine's pushed the filter's saturation and its measured level 10-17 dB over the instrument's
+with the filter closed. Below 20 Hz is ignored in every comparison since.

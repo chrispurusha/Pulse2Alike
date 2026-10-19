@@ -34,6 +34,7 @@ typedef struct {
     double      phase;         // attack: 0..1 along the curve
     double      attackFrom;    // the level the attack started from (a retrigger mid-release)
     bool        rising;        // D-D loop: decaying back up towards full
+    double      timeScale;     // notes §6: decay and release times x this (the filter envelope's are slower)
 } tP2Env;
 
 typedef enum {

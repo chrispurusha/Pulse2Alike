@@ -34,3 +34,9 @@ changes with it (1.9 / 1.75 / 1.6 s at S 32 / 64 / 96). The manual's "full scale
 speed" is not what the instrument does. A loop turns when the decay has arrived within 1/1024 of its target, which is why it waits at the sustain level
 before A-D's next attack. The threshold is from the captures: the three waits (A-D S 64, D-D S 32 and 96) each
 give 1/1000 or so, given the decay's own time constant.
+
+## 6. The filter envelope is slower
+Measured on the self-oscillating filter's cutoff (amount full, Sustain 0) at Decay 48, 56, 63 and 72: the filter
+envelope's time constant is 1.08 times the engine's at every one, while the amp envelope (times to -20 and -30 dB
+at Decay 56 and 63) matches within about 2%. The two share the table, which was measured through the amp envelope;
+the filter envelope's decay and release are scaled by 1.08 (timeScale). Its release is assumed to go with its decay.

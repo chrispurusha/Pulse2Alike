@@ -40,3 +40,6 @@ shape, are as before. Weighted error over all the harmonics: LP12 3.5 -> 2.1 dB.
 made P001/P013/P014 10-17 dB darker than the instrument: it does leak, only less than the first fit said. LP12's level low
 down fell 0.9 dB, which it had been loud by. This was the plug-in's sustain being brighter than the instrument's at
 low notes in P004/P007/P008/P009/P012 (CT).
+
+LP12's whole mix is then scaled by 0.902 (-0.9 dB): with the filter open it measured 0.8-1.0 dB louder than the
+instrument against LP24 (which matches within 0.2 dB), at oscillator levels 60 and 127 and at Volume 31 and 40.

@@ -36,10 +36,10 @@ static const double kFeedbackAt[][2]        = {
 
 // notes §3
 static const double kMix[eP2FilterCount][6] = {
-    {    0.0,  -0.0005, -0.0295,  0.1664, -0.8047,  2.3955}, // LP24 - notes §6: the leak refitted deep below the cutoff
-    {    0.0, -0.00075,  0.0016,  1.7084, -0.3147,  0.1820}, // LP12   below the cutoff
-    { 0.0039,  -0.0118,  0.9137, -0.9947,  0.1210, -0.0345}, // BP12
-    {-0.0032,   0.4867, -1.0194,  0.4379,  0.2133, -0.1162}, // HP12
+    {    0.0,  -0.0005, -0.0295,  0.1664,  -0.8047,  2.3955}, // LP24 - notes §6: the leak refitted deep
+    {0.00000, -0.00068, 0.00144, 1.54098, -0.28386, 0.16416}, // LP12   below the cutoff, x 0.902
+    { 0.0039,  -0.0118,  0.9137, -0.9947,   0.1210, -0.0345}, // BP12
+    {-0.0032,   0.4867, -1.0194,  0.4379,   0.2133, -0.1162}, // HP12
 };
 #define SHELF_ZERO_HZ    (250.2)
 #define SHELF_POLE_HZ    (179.3)

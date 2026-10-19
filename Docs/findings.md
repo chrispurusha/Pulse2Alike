@@ -663,3 +663,64 @@ Offline, 10.5 s at 48 kHz on this Mac: P017 UNISON PAD 0.05 / 0.07 / 0.09 s of C
 - **P002** (osc 3 four octaves up, on VCF): with osc 3 silent it matched within a dB; with it, 9 dB dark. The filter
   FM depth fitted to it is 125 steps per unit of osc 3, not the 28 read from the singing filter's track of an 8 Hz
   square (the track could not follow the 11 ms kicks). Now within 3 dB at notes 48, 60 and 72.
+
+## 2026-10-19 - patch levels
+
+The patches were 2-4 dB loud. Two causes: the oscillator level law (the engine's input saturation squeezed it: a
+saw at level 16-48 came out 1-1.7 dB loud; refitted, p2Plugin notes §36) and LP12's passband (0.8-1.0 dB loud
+against LP24 at every level and volume; scaled by 0.902). Volume, Amp Velocity and the amp envelope's sustain (with
+Amp Velocity 95, sustain 49-127) all matched within 0.2 dB. Now within about 2 dB at notes 48/60/72, except P014
+(+2.5 to +3.6) and P002 (-2.3 to -3.6). Single takes of patches with detuned oscillators move by a dB or two with
+where their beat falls.
+
+## 2026-10-19 - P006 and the filter envelope, followed up
+
+- **Filter envelope decay** on the self-oscillating filter (amount full, Sustain 0, Decay 40 and 63), aligned on the
+  note's onset: within about 3 steps throughout. (Aligned on the pitch tracker's first reading instead, the
+  instrument looked 0.2 s late - the tracker starts later on it.)
+- **PITCH FLW as a mod source:** at note 60, +32 depth, the instrument's cutoff fell 1.9 steps and the plug-in's
+  2.0: (note - 64)/64, as built. A sweep of it read garbage on the instrument (the tracker failing, not the filter).
+- **P006** above 1.6 kHz: the instrument sits a flat 8-10 dB over the rig's silence whether the noise generator is
+  at 104 or 0 and osc 3 on or off - the instrument's own hiss with the VCA open, not the sound. Not modelled, on
+  purpose (CT does not want converter/analogue hiss). Below 1.6 kHz two identical takes differ by up to 8 dB (its
+  LFO on the width, osc 3's detuned LEVEL2 modulation), so single takes cannot settle the "more noise" CT heard;
+  the plug-in's noise has since been raised 4 dB (measured with the filter open) and LP12 refitted - to listen again.
+
+## 2026-10-19 - P006's noise, resolved
+
+CT: too much noise in P006. With osc 3 off the plug-in's noise share matched; with osc 3 on LEVEL2 the instrument's
+tone rose 11-13 dB in 200-800 Hz (osc 2 times osc 3, both near 131 Hz: a strong 2nd harmonic) and the plug-in's
+did not, so the plug-in's tone sat lower against the same noise. A single window cannot judge it - osc 2 and osc 3
+are 3 detune steps apart, a 6 s beat that swings that band by 10 dB - so it was compared over an 8 s note: the
+instrument 10.7-25.4 (mean 17.7), the plug-in at depth 1 12.2-20.6 (13.4), at depth 3 15.3-24.8 (17.2). At 3 the
+noise share over the note matches below 1.6 kHz (-43.1/-15.1 against -40.3/-15.2 dB). Also: osc 3 is louder and
+less tapered than osc 1/2 (+1.5 dB at 127, +2.6 at 58; its own law now), and three identical takes of two slightly
+detuned oscillators beat at different phases - the DCOs do run free.
+
+## 2026-10-19 - P006 at C3/F3 (CT: "the filter on P006 hardware is more open")
+
+- **Filter keytrack below the reference** (base 70 so the filter sings at every note, Keytrack 95 and 127, notes
+  48-72): within 0.2 steps everywhere. Not keytrack.
+- **The filter envelope decays 8% slower than the amp envelope** on the instrument: time constants at Decay 48/56/
+  63/72 of 0.130/0.261/0.478/1.035 s against the engine's 0.121/0.242/0.444/0.963; the amp envelope at Decay 56/63
+  matched within 2%. The filter envelope's decay and release now x1.08 (p2Env notes §6); engine 0.131/0.480.
+- P006 at F3 is then within about 1.5 dB in level and 2-4 dB in brightness after the first half second. At C3, two
+  takes of the instrument differ by up to 5 dB in the first second (osc 2 x osc 3's 6 s beat); after a second the
+  instrument's "brightness" is its own hiss over the nearly closed filter, which is left out.
+- **Reverted the LEVEL2 depth of 3** (back to 1, as measured at 8 Hz): fitted to one band of one take of a patch
+  that beats over 6 s, and CT heard P006 become "spectrally very different". Kept: the filter envelope's 1.08 (four
+  decay settings), osc 3's level law and the noise level (each measured directly). P006's 2nd-4th harmonics,
+  averaged over 7.5 s, were 4/5/10 dB under the instrument's; osc 2's pulse at width 90 (notch at the 4th) and LP12 at
+  cutoff 0-16 both match, so it is in how osc 2, osc 3 and the noise combine - open.
+- **Noise was rate-dependent and squashed the oscillators** (fixed): white at the internal rate, its audible level
+  rose 6 dB at a 48 kHz host over the 192 kHz renders it was calibrated in, and its ultrasonic power compressed the
+  oscillators in the filter by 2.4 dB at P006's noise level (the instrument: no change). Now band-limited at 22 kHz
+  with a fixed density - code-notes/p2Plugin §34. A likely part of CT's "too much noise on P006".
+- **Osc 3 routed away from MIX raises the whole mix 1.8x** (measured on all four routings, osc 1, osc 2 and noise;
+  compression from the filter's own saturation) and **the mix and the filter's output are AC-coupled** (5 Hz) -
+  code-notes/p2Plugin §37. P006: every oscillator was 5 dB quiet, and its closed filter carried sub-audio and DC
+  reading 10-17 dB loud. Found by bisecting P006's dump on the hardware, two or three takes per step.
+- P006 after these, against two takes per note at C3 and F3 (20 Hz high-passed): within 2-3 dB below 1 kHz;
+  1-4 kHz 4-7 dB bright in the first second and still 3-6 dB later, with the envelope gone - static, around
+  resonance 41 / keytrack 95 at cutoff 0, open. The first 150 ms with the filter neutral are ~3 dB quiet, open.
+  The filter envelope's 1.08 moves this by 1-2 dB only; kept.
