@@ -329,3 +329,17 @@ and noise off, one envelope at a time - says which control leaks.
 The instrument's osc 2 burst there is also shorter and earlier (peak 0.155 at ~3 ms, gone by ~7 ms) than the
 engine's: likely the filter envelope's short attacks are faster than the amp envelope's table; to measure with
 noise through the filter (a saw's cycles make 2 ms windows useless at low notes).
+
+## 44. The instrument's mild distortion: per oscillator, and after the filter
+A triangle through LP24 with its cutoff just above the fundamental (`postsat/`: osc levels 40-127, osc 3 on MIX and
+LEVEL2, Volume 40 and 100) - an almost pure sine, so any 2nd or 3rd harmonic is distortion. Volume changes nothing,
+so it all happens before the VCA.
+- The 2nd harmonic (asymmetry) grows with level, -58 to -45 dB, and barely depends on the routing gain: it belongs
+  to each oscillator's own level stage, x + 0.06 x^2 per oscillator, its DC coupled off at 20 Hz. On the mixed
+  signal instead (the filter input) it fitted the triangle and P006 but made the oscillators intermodulate -
+  P001's attack 4.5 dB dark - which the instrument does not do.
+- The 3rd harmonic grows with level and with the routing gain (-46 to -34 dB): a stage after the filter, ahead of
+  the VCA, h - 4 h^3 in the instrument's output units at Volume 40. At the filter input it went 12-37 dB wrong.
+Triangle test within ~2 dB (2nd) and ~3 dB (3rd); P006's osc 1 alone - CT heard the hardware "PWM-like" - now has
+its 2nd harmonic within 2 dB (it was 50 dB short). Open: P006's 3rd harmonic (-12 dB with osc 3 on LEVEL2, +15 on
+MIX), set by the filter there rather than by distortion.

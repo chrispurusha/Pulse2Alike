@@ -81,6 +81,10 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC3_TO_DRIVE              (30.0)    // drive units per unit at full level, measured
 #define OSC3_FB_GAIN               (5.7)     // the drive's output back into the mixer, at full level: measured with a saw
 #define FEEDTHROUGH_COUPLING_HZ    (3)       // notes §43
+#define OSC_EVEN_COUPLING_HZ       (20.0)    // notes §44: the asymmetry's DC goes no further
+#define OSC_EVEN                   (0.06)    // notes §44: each oscillator level stage's asymmetry
+#define POST_FILTER_ODD            (4.0)     // notes §44: the stage after the filter, in the instrument's units
+#define HW_UNITS                   (0.888)   // the engine's pre-VCA level in the instrument's output units at Volume 40
 #define VCA_FEEDTHROUGH            (0.0)     // notes §43: the VCA's control leaking into its output
 #define VCA_COUPLING_HZ            (2)
 #define LEVEL_FEEDTHROUGH          (0.0)     // notes §43: osc level modulation leaking into the mix as DC
@@ -231,6 +235,7 @@ typedef struct {
     double      levelNow[5];           //   and glided per sample
     bool        levelsSet;
     double      feedCoupled;
+    double      oscEvenDc[3];
     double      vcaCoupled;
     double      hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
     bool        hwValid;
@@ -432,6 +437,14 @@ static double band_limit(double x, const double c[5], double * z) {
     z[0] = (c[1] * x) - (c[3] * y) + z[1];
     z[1] = (c[2] * x) - (c[4] * y);
     return y;
+}
+
+// notes §44: an oscillator's level stage, a little asymmetric; its DC goes no further
+static double osc_stage(tP2Plugin * p, int k, double v, double hp) {
+    double even = (OSC_EVEN * v * v) - p->oscEvenDc[k];
+
+    p->oscEvenDc[k] += hp * even;
+    return v + even;
 }
 
 static double white_noise(tP2Plugin * p) {
@@ -990,6 +1003,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
     double         mixHp     = 1.0 - exp(-2.0 * M_PI * MIX_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
+    double         evenHp    = 1.0 - exp(-2.0 * M_PI * OSC_EVEN_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         vcaHp     = 1.0 - exp(-2.0 * M_PI * VCA_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         mixGain   = OSC_INTO_FILTER * ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);
 
@@ -1084,7 +1098,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 // notes §25: subtracted, as on the instrument; the seed is the noise floor a loop starts from
                 sources -= level3 * OSC3_FB_GAIN * p->driveOut;
             } else if (routing == 0) {
-                osc += osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0);
+                osc += osc_stage(p, 2, osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0), evenHp);
             } else if (routing == 1) {
                 amp2 = fmax(0.0, level2 + (level3 * cv3 * OSC3_TO_LEVEL2));
             } else if (routing == 2) {
@@ -1101,7 +1115,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
                 osc += (mix1 * level1 * UNISON_VOICE_GAIN * sum) + (mix2 * amp2 * p2_dco_next(&p->dco[1]));
             } else if (voices == 0) {
-                osc += (mix1 * level1 * p2_dco_next(&p->dco[0])) + (mix2 * amp2 * p2_dco_next(&p->dco[1]));
+                osc += osc_stage(p, 0, mix1 * level1 * p2_dco_next(&p->dco[0]), evenHp) + osc_stage(p, 1, mix2 * amp2 * p2_dco_next(&p->dco[1]), evenHp);
             } else {
                 // notes §12: PARA-8 one pulse per voice, PARA-4 two; each fades on its own
                 for (int v = 0; v < voices; v++) {
@@ -1129,12 +1143,20 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             double coupled  = osc - p->mixCoupled;
 
             p->mixCoupled            += mixHp * coupled;
-            double step     = MIX_SLEW_PER_SECOND / rateIn;   // notes §40
+            double step     = MIX_SLEW_PER_SECOND / rateIn; // notes §40
 
-            p->slewed                += fmax(-step, fmin(step, (mixGain * coupled) - p->slewed));
+            double into     = mixGain * coupled;
+            p->slewed                += fmax(-step, fmin(step, into - p->slewed));
             double filtered = p2_filter_process(&p->filter, p->slewed) - p->filterCoupled;
 
             p->filterCoupled         += mixHp * filtered;
+            // notes §44: mild odd saturation after the filter, ahead of the VCA
+            {
+                double h = filtered * HW_UNITS;
+
+                filtered = (h - (POST_FILTER_ODD * h * h * h)) / HW_UNITS;
+            }
+
             // notes §43: the level controls' leak, coupled on its own
             double leak     = p->levelNow[4] - p->feedCoupled;
 

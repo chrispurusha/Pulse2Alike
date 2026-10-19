@@ -753,3 +753,6 @@ detuned oscillators beat at different phases - the DCOs do run free.
   with the cutoff are gone, within ~3 dB everywhere (p2Filter notes §7). P006's noise alone and the routed gain on
   it match the instrument within ~1 dB; what is left is LP12's stopband, ~2.5 dB high at 1-2.5 kHz at cutoff 0.
 - **P006's extra noise:** the filter's leak must not get the routed-mix gain (p2Filter notes §8); found by stripping P006 on noise one setting at a time (`p006_noise_steps/`).
+- **Mild distortion added** (CT heard P006's osc 1 "PWM-like" on the instrument): an asymmetry in each oscillator's
+  level stage and a little odd saturation after the filter, before the VCA - p2Plugin notes §44 (`postsat/`,
+  `p006_osc1/`). All 15 patches within 0.5 dB of before or closer.
