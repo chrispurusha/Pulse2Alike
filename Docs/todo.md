@@ -58,3 +58,4 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127
 - Osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
 - FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?
+- Arp Pattern (0-14): what it selects

@@ -14,3 +14,6 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Reopen a Live project: the name and file come back; Save still keeps the original dump's other bytes
 - Controls > Drag Dials Horizontally; Anomalies toggle
 - Drive TUBE and FUZZ by ear against the instrument; osc 3 routings LEVEL2 / VCF / DRIVE and the FB shape (depths are guesses)
+- P004 at several notes against the plug-in (Keytrack OFF itself is confirmed)
+- Program change to the current program is ignored (host re-sends it)
+- Arpeggiator in Live, against the instrument: modes, Range, Clock, Step Duration, Swing, HOLD, following Live's tempo and bars; a step pattern with OFF/SOFT/HARD/EVEN/ODD/OCT+/1ST/RESET (P015 DOPPLER uses HOLD)

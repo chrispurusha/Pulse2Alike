@@ -91,7 +91,14 @@ int main(int argc, char ** argv) {
         return 2;
     }
     const tSynthLibPluginDesc * d                              = &synthlib_plugin_variants()->variants[0];
-    int                         note                           = atoi(argv[2]);
+    int                         notes[8], noteCount = 0;
+    float                       velocity                       = 100.0f / 127.0f; // "48" or a chord, "48,52,55"
+
+    for (char * tok = strtok(argv[2], ","); (tok != NULL) && (noteCount < 8); tok = strtok(NULL, ",")) {
+        notes[noteCount++] = atoi(tok);
+    }
+
+    int                         note                           = notes[0];
     double                      hold = atof(argv[3]), tail = atof(argv[4]);
     int                         rate                           = (argc > 6) ? atoi(argv[6]) : 48000;
     void *                      inst                           = d->cb.create(d);
@@ -109,6 +116,11 @@ int main(int argc, char ** argv) {
     }
 
     for (int a = 7; a < argc; a++) {
+        if (strncmp(argv[a], "vel=", 4) == 0) {             // the notes' velocity, 1..127 (default 100)
+            velocity = (float)atof(argv[a] + 4) / 127.0f;
+            continue;
+        }
+
         if (!apply_override(values, argv[a])) {
             fprintf(stderr, "no parameter for %s\n", argv[a]);
             return 2;
@@ -134,11 +146,15 @@ int main(int argc, char ** argv) {
         uint32_t frames = (uint32_t)((total - at) < 256 ? (total - at) : 256);
 
         if ((at <= on) && (on < at + frames)) {
-            d->cb.noteOn(inst, 0, (uint8_t)note, 100.0f / 127.0f, (uint32_t)(on - at));
+            for (int n = 0; n < noteCount; n++) {
+                d->cb.noteOn(inst, 0, (uint8_t)notes[n], velocity, (uint32_t)(on - at));
+            }
         }
 
         if ((at <= off) && (off < at + frames)) {
-            d->cb.noteOff(inst, 0, (uint8_t)note, 0.0f, (uint32_t)(off - at));
+            for (int n = 0; n < noteCount; n++) {
+                d->cb.noteOff(inst, 0, (uint8_t)notes[n], 0.0f, (uint32_t)(off - at));
+            }
         }
         d->cb.process(inst, NULL, 0, outs, 2, frames, NULL);
         memcpy(mono + at, left, frames * sizeof(float));

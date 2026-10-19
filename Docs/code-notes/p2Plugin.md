@@ -120,6 +120,8 @@ instrument's.
 ## 20. Program change
 Bank select (CC 32) and program change pick a sound as the instrument does, as measured: P(100 × (bank mod 5) +
 min(program, 99) + 1). Bank 1 program 0 is P101, programs 99 and 100 are both P100, and bank 2 program 5 is P206.
+A program change to the sound already loaded (by program change, or by opening its library file) is ignored, so
+an edited sound is not thrown away by a host re-sending the same program.
 Every `.syx` in `iCloud Drive/Patches/Pulse2` is read once when the plug-in starts (`p2_patch_cache_load`, about
 68 KB). A program change only copies a cached sound, on the audio thread with no file access, then tells the
 host of each parameter it changed. Program and Bank are hidden and never saved, so reopening a project restores
@@ -153,8 +155,10 @@ As the manual describes them: MIX into the mixer; LEVEL2 adds osc 3 to osc 2's l
 (audio-rate filter FM, the filter recomputed every oversampled sample); DRIVE adds it to the drive amount. Only MIX
 puts osc 3 in the mixer. On the three control routings osc 3 is AC coupled (a high-pass near 14 Hz), measured with
 osc 3 as an 8 Hz square on the self-oscillating filter: each edge kicks the cutoff and it decays back in about
-30 ms. The kick is 28 cutoff steps per unit of osc 3 (+-1) at full level, scaled by the oscillator level curve
-(about 12 steps at level 32, 56 at 127 across a square's full swing). LEVEL2 measured: osc 2's level plus osc 3's
+30 ms. The depth is 125 cutoff steps per unit of osc 3 (+-1) at full level, scaled by the oscillator level curve. The
+square's kicks read 28 off the self-oscillating filter's pitch track, which cannot follow a kick that decays in
+11 ms; P002's audio-rate FM (osc 3 four octaves up on VCF) matched the instrument only at 112-168 (brightness within
+3 dB at notes 48/60/72 at 125). LEVEL2 measured: osc 2's level plus osc 3's
 level x osc 3, floored at zero (8 dB between the states at level 32, as that predicts; silent in one state from 64).
 DRIVE: 30 drive units per unit of osc 3 at full level, measured (findings, "osc 3 to DRIVE"). FB, osc 3's fifth
 shape, SUBTRACTS the drive's output from the mixer (negative feedback, findings "FB"), at 5.7 × osc 3's level:
@@ -166,7 +170,9 @@ instrument's noise floor does.
 Measured (findings, "voice fade"): in PARA-8/PARA-4 a released voice dies away while the others hold the amp
 envelope open, as a release stage of R − 5.5 − 0.61 × (127 − Fade), R the amp envelope's Release: from two points
 (Fade 127 and 100 at R 70) and checked by the rest (Fade 83 almost at once, 64 and below at once, R 40 at once
-whatever Fade). Osc 2's part of a PARA-4 voice uses osc 2's Fade. The fade in is not changed by Fade.
+whatever Fade). Osc 2's part of a PARA-4 voice uses osc 2's Fade. The fade in is not changed by Fade. When the
+last key is released no voice fades on its own: the amp envelope's release is the release (CT, P010: the pad's
+release was far shorter than the instrument's when every voice faded by itself).
 
 ## 27. LFO phase at a note
 What restarts an LFO is the FILTER envelope's trigger, following that envelope's Trigger mode (SNG on a fresh note
@@ -194,5 +200,41 @@ the difference: its envelope sustains at 47, where velocity adds about 9 steps, 
 On the instrument a pulse is quieter than the saw against which the plug-in's output was set: with the filter
 open, PWM (width 64) measured 4.4 dB and APW 4.2 dB (every width) below what the engine made, while the saw and
 triangle agree. Every pulse in the mix (osc 1's PWM and APW, the unison and paraphonic voices, osc 2's PWM, osc 3's
-SQR on MIX) is scaled by 0.61. Only in the mix: osc 3's square as a control (LEVEL2, VCF, DRIVE) keeps its full
+SQR on MIX) is scaled by 0.525 (first set to 0.61 from older captures; a same-session comparison at widths 8-127,
+PWM and APW, put every pulse 1.3 dB loud at 0.61, the saw within 0.2 dB). Only in the mix: osc 3's square as a control (LEVEL2, VCF, DRIVE) keeps its full
 size, which is what those depths were measured with.
+
+## 31. Keytrack OFF
+Osc 1's and osc 2's Keytrack OFF hold the oscillator at note 60: its semitone, detune and modulation still apply,
+the played note does not (the instrument adds a fixed C4 in place of the note). Not in the paraphonic shapes,
+where each voice has its own note. A patch can then give an oscillator its pitch back through the mod matrix:
+P004 WITH DELAY holds osc 2 and feeds it the key through M-ACCU and M-DELAY, a second oscillator that follows late.
+
+## 32. The arpeggiator in the engine
+With Arp Active on, keys go to the arpeggiator (p2Arp) rather than the voice, and it plays the voice through the
+same note-on and note-off a key would, a step's Glide forcing a glide. Its clock is the host's position when the
+host is playing (the arp then follows the host's tempo), otherwise its own Tempo; the Global "clock" setting of the
+instrument has no equivalent. The accent reads the mod sources as the last control tick left them.
+
+## 33. Oversampling
+The engine (oscillators, filter, drive) runs at 1, 2 or 4 times the host's rate, the Oversampling setting on the
+Global page (default 4), and a 64-tap windowed-sinc decimator brings it back down; at 1 there is none. Changing it
+rebuilds the decimator and restarts the filter and drive from rest, so it clicks once. At lower factors the
+filter's top end is held below the oversampled rate's Nyquist, so the brightest cutoffs close in a little.
+
+## 34. The noise level
+Measured with the noise alone (levels 104 and 127, filter open) against the saw: the engine's white noise was 4 dB
+below the instrument's in every octave band from 30 Hz to 16 kHz, with the same gentle tilt (a little more bass,
+the top octave cut by the filter's top poles). Scaled by 1.585.
+A floor of white noise about 100 dB down is always in the mix, as the instrument's analogue floor is, so the filter
+or the FB loop can start to oscillate with every source off (a patch playing the self-oscillating filter as a sine
+was silent without it).
+
+A paraphonic voice is quieter than the same pulse played mono (measured, one note, PW 127): PARA-8 11.6 dB down
+(0.263), PARA-4 8.8 dB (0.363). P010 had come out 10 dB loud.
+
+## 35. Free-running oscillators
+The instrument's DCOs never reset, so two of them slightly detuned (P001: osc 3 19 steps from osc 1, a beat of about
+1.8 s) start a note anywhere in their beat. Each instance starts its oscillators at its own phases, as the
+instrument would be. P001's "darker sustain" in the comparison was its beat caught at a different point (the
+instrument's dip at 0.56 s, the plug-in's at 0.9 s), not a fault.

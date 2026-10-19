@@ -40,6 +40,7 @@
 #include "synthlibGlobals.h"
 
 #include "p2Menu.h"
+#include "p2Params.h"
 #include "p2Patch.h"
 
 #define GL_SILENCE_DEPRECATION    1
@@ -445,6 +446,124 @@ static bool name_edit_key(int glfwKey, unsigned int codepoint) {
     return true;
 }
 
+// ---- the arpeggiator's steps, on the ARP page - notes §7 ------------------------------------------------------
+
+#define ARP_STEPS      (16)
+#define STEPS_Y        (210.0)
+#define STEP_ROW_H     (17.0)
+#define STEP_CELL_H    (14.0)
+
+static const char *const kStepEvents[] = {"OFF", "SOFT", "NORM", "HARD", "EVEN", "ODD", "OCT+", "1ST", "RESET"};
+static const char *const kStepTimes[]  = {"25%", "50%", "75%", "100%"};
+static tRectangle        gStepCell[ARP_STEPS][3];       // event, time, glide
+static int               gStepMenuStep = -1, gStepMenuField = -1;
+
+static bool arp_page(void) {
+    return (gPageCount > 0) && (strcmp(gPages[gPage].title, "ARP") == 0);
+}
+
+static int step_byte(int i) {
+    long v = lround(gValue[kP2ParamArpStep1 + (uint32_t)i] * 127.0);
+
+    return (int)((v < 0) ? 0 : ((v > 127) ? 127 : v));
+}
+
+static void fitted_button(tRectangle r, const char * text, tRgb colour);
+
+static void draw_steps(void) {
+    int    length = (int)lround(gValue[kP2ParamArpLength] * 15.0) + 1;
+    double w      = (P2_CANVAS_W - (2.0 * MARGIN_X)) / ARP_STEPS;
+    char   number[8];
+
+    set_rgb_colour((tRgb)RGB_WHITE);
+    render_text(mainArea, (tRectangle){{MARGIN_X, STEPS_Y}, {0.0, 12.0}}, "STEPS");
+    set_rgb_colour((tRgb)RGB_GREY_5);
+    render_line(mainArea, (tCoord){MARGIN_X, STEPS_Y + 15.0}, (tCoord){P2_CANVAS_W - MARGIN_X, STEPS_Y + 15.0}, 1.0);
+
+    for (int i = 0; i < ARP_STEPS; i++) {
+        int    b      = step_byte(i);
+        int    event  = ((b & 0x0F) > 8) ? 8 : (b & 0x0F);
+        double x      = MARGIN_X + (i * w);
+        tRgb   colour = (i < length) ? (tRgb){
+            0.65, 0.65, 0.65
+        }
+                                                                : (tRgb)RGB_GREY_5;
+
+        snprintf(number, sizeof(number), "%d", i + 1);
+        set_rgb_colour((i < length) ? (tRgb)RGB_GREY_7 : (tRgb)RGB_GREY_5);
+        render_text(mainArea, (tRectangle){{x, STEPS_Y + 20.0}, {0.0, LABEL_H}}, number);
+
+        for (int f = 0; f < 3; f++) {
+            gStepCell[i][f] = (tRectangle){{
+                                               x, STEPS_Y + 34.0 + (f * STEP_ROW_H)
+                                           }, {
+                                               w - 3.0, STEP_CELL_H
+                                           }
+            };
+        }
+
+        fitted_button(gStepCell[i][0], kStepEvents[event], colour);
+        fitted_button(gStepCell[i][1], kStepTimes[(b >> 4) & 3], colour);
+        fitted_button(gStepCell[i][2], (b & 0x40) ? "GLIDE" : "-", ((b & 0x40) && (i < length)) ? (tRgb)RGB_GREEN_ON : colour);
+    }
+}
+
+static void step_edit(int i, int b, tP2Edit * edit) {
+    edit->paramId                          = kP2ParamArpStep1 + (uint32_t)i;
+    edit->normalized                       = b / 127.0;
+    gValue[kP2ParamArpStep1 + (uint32_t)i] = edit->normalized;
+}
+
+// A press on a step: Event and Time open their lists, Glide toggles at once
+static bool step_press(double x, double y, tP2Edit * edit) {
+    for (int i = 0; i < ARP_STEPS; i++) {
+        for (int f = 0; f < 3; f++) {
+            if (!within_rectangle((tCoord){x, y}, draw_button_bounds(gStepCell[i][f]))) {
+                continue;
+            }
+
+            if (f == 2) {
+                step_edit(i, step_byte(i) ^ 0x40, edit);
+                return true;
+            }
+            int count = (f == 0) ? 9 : 4;
+
+            for (int k = 0; k < count; k++) {
+                gMenuItems[k] = (tMenuItem){
+                    .label = (f == 0) ? kStepEvents[k] : kStepTimes[k], .colour = (tRgb)MENU_BG, .action = menu_action, .param = (uint32_t)k
+                };
+            }
+
+            gMenuItems[count] = (tMenuItem){
+                .label = NULL, .action = NULL
+            };
+            gMenuFor          = NULL;
+            gMenuChoice       = -1;
+            gStepMenuStep     = i;
+            gStepMenuField    = f;
+            open_context_menu(below_rect(gStepCell[i][f]), gMenuItems, 1, 0.0);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// A button whose label is shrunk to fit it (a mod target's name is wider than its box)
+#define LABEL_MIN_H    (7.0)
+
+static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+    double h = r.size.h;
+
+    while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > r.size.w)) {
+        h -= 0.5;
+    }
+    // where draw_button puts its own label: the box grows by its margin all round, the text starts a margin in
+    draw_button(mainArea, r, "", colour);
+    set_rgb_colour((tRgb)RGB_BLACK);
+    render_text(mainArea, (tRectangle){{r.coord.x + DRAW_BUTTON_MARGIN, r.coord.y + DRAW_BUTTON_MARGIN + ((r.size.h - h) / 2.0)}, {0.0, h}}, text);
+}
+
 static int32_t step_of(const tP2Control * c) {
     long step = lround(gValue[c->paramId] * c->steps);
 
@@ -497,7 +616,7 @@ static void layout(void) {
 static void value_text(const tP2Control * c, char * out, size_t len) {
     int32_t step = step_of(c);
 
-    if (c->kind == eP2ControlChoice) {
+    if (c->names != NULL) {
         snprintf(out, len, "%s", c->names[step]);
     } else {
         snprintf(out, len, "%d", (int)lround(c->plainMin + step));
@@ -602,8 +721,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         value_text(c, text, sizeof(text));
 
         if (c->kind == eP2ControlChoice) {
-            draw_button(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}},
-                        text, colour);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
@@ -611,6 +729,9 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         }
     }
 
+    if (arp_page()) {
+        draw_steps();
+    }
     render_menu_bar(p2_menu_bar(), p2_menu_bar_rect());
     synthlib_popups_tick();
     synthlib_popups_render();  // menus, the file browser and dialogues, front-most last
@@ -677,28 +798,31 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
         name_edit_commit();
     }
 
-    if (within_rectangle((tCoord){x, y}, gPrevRect)) {
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {
         step_patch(-1);
         return true;
     }
 
-    if (within_rectangle((tCoord){x, y}, gNextRect)) {
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gNextRect))) {
         step_patch(1);
         return true;
     }
 
-    if (within_rectangle((tCoord){x, y}, gLoadRect)) {
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLoadRect))) {
         p2_draw_open_patch();
         return true;
     }
 
     for (uint32_t p = 0; p < gPageCount; p++) {
-        if (within_rectangle((tCoord){x, y}, gTabs[p])) {
+        if (within_rectangle((tCoord){x, y}, draw_button_bounds(gTabs[p]))) {
             gPage = p;
             return true;
         }
     }
 
+    if (arp_page() && step_press(x, y, edit)) {
+        return true;
+    }
     layout();
     const tPlaced * pc = hit(x, y);
 
@@ -740,6 +864,16 @@ void p2_draw_release(double x, double y, tP2Edit * edit) {
         edit->paramId             = gMenuFor->paramId;
         edit->normalized          = (double)gMenuChoice / gMenuFor->steps;
         gValue[gMenuFor->paramId] = edit->normalized;
+    } else if ((gStepMenuStep >= 0) && (gMenuChoice >= 0)) {
+        int b = step_byte(gStepMenuStep);
+
+        b             = (gStepMenuField == 0) ? ((b & ~0x0F) | gMenuChoice) : ((b & ~0x30) | (gMenuChoice << 4));
+        step_edit(gStepMenuStep, b, edit);
+        gStepMenuStep = -1;
+    }
+
+    if (!gContextMenu.active) {
+        gStepMenuStep = -1;
     }
 
     if (!gContextMenu.active) {

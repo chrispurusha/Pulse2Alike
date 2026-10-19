@@ -44,3 +44,8 @@ The sound's name, beside Prev/Next/Load, edited in place as SynthEdit edits a pr
 Return or a click elsewhere keeps it, Escape drops it. Typing is upper-cased and stops at 14 characters, which
 is the dump's name field and how the instrument's own sounds are named. The name goes to a file only at the
 next save. The file the sound came from is shown greyed after it.
+
+## 7. The arpeggiator's steps
+Below the ARP page's dials, the 16 steps, each three cells: its Event and Time (lists) and Glide (a toggle). A
+step past Pattern Length is greyed. Each step is one parameter, the instrument's own byte (p2Arp notes §2), so
+an edit changes only the bits it shows.

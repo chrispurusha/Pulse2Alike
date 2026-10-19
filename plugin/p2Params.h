@@ -123,6 +123,23 @@ enum {
     kP2ParamPressure,
     kP2ParamBreath,
     kP2ParamSustain,
+    kP2ParamArpStep1,
+    kP2ParamArpStep2,
+    kP2ParamArpStep3,
+    kP2ParamArpStep4,
+    kP2ParamArpStep5,
+    kP2ParamArpStep6,
+    kP2ParamArpStep7,
+    kP2ParamArpStep8,
+    kP2ParamArpStep9,
+    kP2ParamArpStep10,
+    kP2ParamArpStep11,
+    kP2ParamArpStep12,
+    kP2ParamArpStep13,
+    kP2ParamArpStep14,
+    kP2ParamArpStep15,
+    kP2ParamArpStep16,
+    kP2ParamArpAccent,
     kP2ParamCount
 };
 

@@ -588,3 +588,78 @@ On the instrument: bend at full throw +2.00 and −11.99 semitones with Bend Up 
 mod wheel and channel pressure as mod sources on the cutoff at amount +32 raise it 15.4/31.0 and 15.2/30.6 steps
 at half and full (linear; the engine gives 16.1/32, within a step); the sustain pedal holds a released note until
 it is lifted. As modelled.
+
+## 2026-10-18 - Keytrack OFF, and P004
+
+The plug-in ignored the oscillators' Keytrack switch. The instrument adds the played note to an oscillator's pitch
+with Keytrack ON, and a fixed note 60 with it OFF. P004 WITH DELAY has osc 2 OFF and gives it the key back through
+PITCH FLW -> M-ACCU -> M-DELAY -> OSC2 PITCH, so osc 2 followed the keyboard twice in the engine, which is the tone
+that stood out (CT). The patch validation plays only note 48, which hid it. To check on the instrument: osc 2 alone,
+Keytrack OFF, at several notes (the instrument was off MIDI when this was done).
+
+## 2026-10-18 - the arpeggiator (`96k/arp/`)
+
+- **Tempo** (Clock at index 13, which is 3/64 - the list starts at 1/1): BPM = 46 + 2 × Tempo, from 46 to 300; every
+  point of 0/8/16/32/48/64/80/96/112/127 within the timing's precision.
+- **Swing:** the first of each pair of steps takes (Swing − 14)% of the two: 18/34/50/66/82% at 32/48/64/80/96;
+  at 14 and 114 one of the pair has no length.
+- **Modes** (a chord 48 52 55, Range 2): UP 48 52 55 60 64 67 and again; DOWN the reverse; ALT up and back down
+  without repeating the ends; #UP/#DWN as UP/DOWN here (played in pitch order).
+- **Clock and Step Duration** from the values the panel names (p2Arp notes §1); the step bytes' layout from the
+  library (notes §2); SOFT and HARD's velocity offsets (-32, +64) are the plug-in's choice, not yet measured (notes §5).
+- **Trap:** the duration and mode takes ran with the step pattern of the sound sent before (P011, whose steps are not
+  the default), which made Step Duration and #ALT look wrong. A take must set the steps it assumes.
+
+## 2026-10-18 - oversampling cost
+
+Offline, 10.5 s at 48 kHz on this Mac: P017 UNISON PAD 0.05 / 0.07 / 0.09 s of CPU at 1x / 2x / 4x, P013 0.02 /
+0.05 / 0.07 s - about 1% of real time at 4x. The setting is there for slower machines and many instances.
+
+## 2026-10-19 - back on the instrument
+
+- **Keytrack OFF:** osc 2 alone at notes 36/48/60/72/84: 261.6 Hz every time, C4, as built.
+- **An OFF step uses up its note:** Length 4, step 2 OFF, UP over 48 52 55 gives 48·55·48, 52·48·52, 55·52·55 ...
+- **The modes, with the default steps:** UP, DOWN, ALT, #UP, #DWN as built. **#ALT** goes up once and then swings
+  between the top two notes (64 67 64 67 ...): kept as an anomaly.
+
+## 2026-10-19 - CT's listening round, followed up
+
+- **LFO rates (P005):** LFO 1 speed 44 measured 2.167 Hz (law 2.172), LFO 2 speed 38 1.526 Hz (1.536): within 0.6%.
+  The faster feel CT heard is not the rate law; P005 also routes the mod wheel to LFO 1's speed and LFO 2 to Mod 1's
+  amount.
+- **Noise (P006):** the engine's noise was 4 dB quiet in every octave band, same spectral tilt; raised. CT heard more
+  noise from the plug-in in P006, so something else in that patch adds it - open.
+- **P010's release** was far shorter in the plug-in: every paraphonic voice faded by itself once the chord was
+  released. Now only while other keys hold the envelope.
+- **Clicks** on the bottom edge of a button were missed: the hit test used the button's rectangle, not the larger
+  box draw_button draws. Fixed.
+
+## 2026-10-19 - CT's brighter/darker patches, followed up (`brightness/`, `lowcut/`, `p001/`, `bleed/`)
+
+- All 15 patches at notes 48/60/72 and velocities 64/100/127 against the plug-in (`tools/brightness.py`,
+  summary.txt). Velocity made little difference; the gaps depended on the note.
+- **The cause for P004/P007/P008/P009/P012** (sustain brighter at low notes): the LP12 and LP24 output mix leaked
+  the early stages, so far above a low cutoff the response stopped falling. Refitted (p2Filter notes §6); P004,
+  P007, P008 now within about a dB at every note.
+- **Paraphonic level:** one PARA-8 voice is 11.6 dB and a PARA-4 voice 8.8 dB below the same pulse played mono.
+- **Filter keytrack** checked on the self-oscillating filter at notes 72/84 (the only ones where the instrument still
+  sings): within 0.1 step at Keytrack 127 and 95. The filter envelope's sustain level matches S/127.
+- **Not bleed:** with Volume 0 (and with the filter closed too) the instrument is silent to the rig's floor. A
+  reading of the high band "after the note" in P001 was still the release tail.
+- **Open:** P001/P014 at note 48 are darker in the plug-in once the filter envelope has decayed (the instrument's
+  brightness climbs back about 18 dB over half a second; the plug-in's does not). Not the clamp below cutoff 0, the
+  envelope or keytrack (each checked alone), resonance or filter velocity.
+
+## 2026-10-19 - P001 and the patch levels
+
+- **P001** is not a fault: osc 1 and osc 3 beat (19 detune steps, about 1.8 s), and the instrument's free-running
+  DCOs start each note at a different point of it. Both the instrument and the plug-in dip and recover; only where
+  differs. The plug-in's oscillators now start at their own phases per instance.
+- **Volume and Amp Velocity** checked at Volume 20/31/64/100/127 and Amp Velocity 95 at velocities 64/100/127: within
+  0.6 dB everywhere.
+- **Pulse level:** PWM at widths 8-127 and APW at all widths were 1.2-1.6 dB loud; 0.61 -> 0.525.
+- Sums of detuned oscillators cannot be compared take by take: where a slow beat is when a take starts decides its
+  level.
+- **P002** (osc 3 four octaves up, on VCF): with osc 3 silent it matched within a dB; with it, 9 dB dark. The filter
+  FM depth fitted to it is 125 steps per unit of osc 3, not the 28 read from the singing filter's track of an 8 Hz
+  square (the track could not follow the 11 ms kicks). Now within 3 dB at notes 48, 60 and 72.

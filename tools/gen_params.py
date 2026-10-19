@@ -16,6 +16,13 @@ SRC=['OFF','LFO1','LFO1*MODW','LFO1*PRS','LFO2','LFO2*ENVA','ENVF','ENVA','VELOC
 TGT=['PITCH','OSC1 PITCH','OSC2 PITCH','OSC3 PITCH','PULSEWIDTH1','PULSEWIDTH2','OSC1 LEVEL','OSC2 LEVEL','OSC3 LEVEL','NOISE LEVEL','CUTOFF','RESONANCE','VOLUME','PANNING','LFO1 SPEED','MOD1 AMOUNT','DRIVE','GLIDE RATE','ENVF RATES','ENVA RATES','UNISON DET','PARA FADE1','PARA FADE2','ARP SWING','CV OUT','M-ACCU','M-PRODUCT','M-DELAY','M-SMOOTH','M-MIN','M-MAX','VCF ENV AMT']
 ARPMODE=['UP','DOWN','ALT','RAND','#UP','#DWN','#ALT']
 OVS=['1x','2x','4x']
+ARPACT=['OFF','ON','HOLD']
+CLOCK=['1/1','3/4','2/3','1/2','3/8','1/3','1/4','3/16','1/6','1/8','3/32','1/12','1/16','3/64','1/24','1/32','3/128','1/48','1/64','1/96']
+TEMPO=[str(46 + 2 * i) for i in range(128)]                      # BPM, measured: 46 + 2 per step
+DURATION=['12.5%','18.8%','25%','37.5%','50%','75%','100%','150%','200%','300%','400%','600%','800%','1200%','1600%']
+SWING=['%d%%' % (v - 14) for v in range(14, 115)]
+DELAY=['%+d%%' % (v - 64) for v in range(14, 115)]
+ONE_UP=lambda n: [str(i + 1) for i in range(n)]
 
 # (id, title, short, lo, hi, default, kind, names, displayBase, continuous)
 # kind: dial | list | bi (shows value-64) ; existing ids 0..10 keep their order and ranges
@@ -74,16 +81,16 @@ for m in range(1,9):
     add('Mod%dSource'%m,'Mod %d Source'%m,'Source',0,24,0,'list',SRC)
     add('Mod%dAmount'%m,'Mod %d Amount'%m,'Amount',0,127,64,'bi')
     add('Mod%dTarget'%m,'Mod %d Target'%m,'Target',0,31,0,'list',TGT)
-add('ArpActive','Arp Active','Arp',0,2,0,'list',LOOP)
-add('ArpRange','Arp Range','Range',0,9,0)
-add('ArpTempo','Arp Tempo','Tempo',0,127,64)
-add('ArpClock','Arp Clock','Clock',0,19,0)
+add('ArpActive','Arp Active','Arp',0,2,0,'list',ARPACT)
+add('ArpRange','Arp Range','Range',0,9,0,names=ONE_UP(10))
+add('ArpTempo','Arp Tempo','Tempo',0,127,37,names=TEMPO)
+add('ArpClock','Arp Clock','Clock',0,19,12,'list',CLOCK)
 add('ArpPattern','Arp Pattern','Pattern',0,14,0)
 add('ArpMode','Arp Mode','Mode',0,6,0,'list',ARPMODE)
-add('ArpStep','Arp Step Duration','Step',0,14,0)
-add('ArpSwing','Arp Swing','Swing',14,114,64)
-add('ArpDelay','Arp Delay','Delay',14,114,14)
-add('ArpLength','Arp Pattern Length','Length',0,15,15)
+add('ArpStep','Arp Step Duration','Step',0,14,6,names=DURATION)
+add('ArpSwing','Arp Swing','Swing',14,114,64,names=SWING)
+add('ArpDelay','Arp Delay','Delay',14,114,64,names=DELAY)
+add('ArpLength','Arp Pattern Length','Length',0,15,15,names=ONE_UP(16))
 add('BendUp','Bend Up','Bend +',0,36,2)
 add('BendDown','Bend Down','Bend -',0,36,2)
 add('Osc1Fade','Osc 1 Env A Fade','Fade 1',0,127,0)
@@ -101,6 +108,11 @@ add('ModWheel','Mod Wheel','ModWhl',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_
 add('Pressure','Pressure','Press',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_AFTERTOUCH')
 add('Breath','Breath','Breath',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_BREATH')
 add('Sustain','Sustain Pedal','Sustain',0,127,0,cont=True,flags=PERF,midi='SYNTHLIB_MIDI_SUSTAIN')
+# notes §7: the arpeggiator's 16 steps, one byte each (event in bits 0-3, time in 4-5, glide in 6) and its accent;
+# saved with the sound, not shown until there is a step editor
+for i in range(1, 17):
+    add('ArpStep%d' % i, 'Arp Step %d' % i, 'Step %d' % i, 0, 127, 50, flags='SYNTHLIB_PARAM_HIDDEN')
+add('ArpAccent','Arp Accent Control','Accent',0,24,0,'list',SRC)
 
 
 ROWS = ['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1Level',
@@ -114,7 +126,7 @@ ROWS = ['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1
         'Drive','DriveCurve','Pan','NoiseLevel','Volume','AmpVelocity'] + \
        sum([['Mod%dSource' % m, 'Mod%dAmount' % m, 'Mod%dTarget' % m] for m in range(1, 9)], []) + \
        ['UnisonDetune','Osc1Fade','Osc2Fade','Lfo1Phase','Lfo2Phase',None,None,'BendUp','BendDown',
-        'ArpStep','ArpSwing','ArpDelay'] + [None] * 16 + ['ArpLength']
+        'ArpStep','ArpSwing','ArpDelay'] + ['ArpStep%d' % i for i in range(1, 17)] + ['ArpLength', 'ArpAccent']
 RAW_LOW = {'Osc1Semitone': 16, 'Osc2Semitone': 16, 'Osc3Semitone': 16}   # stored 16..112, shown -48..+48
 
 PAGES=[
@@ -133,7 +145,7 @@ PAGES=[
           ('LFO 2',(0.40,0.75,0.45),['Lfo2Speed','Lfo2Delay','Lfo2Phase'])]),
  ('MOD',[('MOD %d'%m,(0.70,0.45,0.75),['Mod%dSource'%m,'Mod%dAmount'%m,'Mod%dTarget'%m]) for m in range(1,9)]),
  ('ARP',[('ARPEGGIATOR',(0.65,0.65,0.65),['ArpActive','ArpMode','ArpRange','ArpClock','ArpTempo','ArpPattern']),
-         ('TIMING',(0.65,0.65,0.65),['ArpStep','ArpSwing','ArpDelay','ArpLength'])]),
+         ('TIMING',(0.65,0.65,0.65),['ArpStep','ArpSwing','ArpDelay','ArpLength','ArpAccent'])]),
  ('GLOBAL',[('PERFORMANCE',(0.65,0.65,0.65),['BendUp','BendDown','Osc1Fade','Osc2Fade']),
             ('PLUG-IN',(0.65,0.65,0.65),['Oversample','Anomalies'])]),
 ]

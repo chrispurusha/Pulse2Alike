@@ -38,3 +38,12 @@ The VST3 half needs the VST3 SDK at `~/Documents/vst3sdk` (or `$VST3_SDK`); the 
 
 GPLv3 - see [`LICENSE`](LICENSE). Third-party components and their redistribution obligations are in
 [`THIRD_PARTY.md`](THIRD_PARTY.md).
+
+## Releasing
+
+    ./do-release 0.1.0-beta.1     # the first release (there is no tag yet)
+    ./do-release beta             # after that: beta / patch / minor / major / final bump the newest V* tag
+
+Builds both plug-ins (universal, ad-hoc signed) into a `.dmg` on the Desktop with a `Read Me First.txt` (installing,
+clearing the quarantine) and the licence. It never tags: it prints the `git tag` command to run once the `.dmg` has
+been checked. Needs the VST3 SDK, as `do-plugin` does.

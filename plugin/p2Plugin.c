@@ -27,6 +27,7 @@
 #include "synthlibLog.h"
 #include "p2Dco.h"
 #include "p2Drive.h"
+#include "p2Arp.h"
 #include "p2Filter.h"
 #include "p2Env.h"
 #include "p2Lfo.h"
@@ -63,21 +64,20 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define LEVEL_EXPONENT             (0.864)
 #define DETUNE_PITCH_PER_STEP      (2)      // 1/256 semitone units
 #define NOTE_STACK_SIZE            (16)
-#define OVERSAMPLE                 (4)
+#define OVERSAMPLE_DEFAULT         (4)      // notes §33: the Oversampling setting picks 1, 2 or 4
 #define DECIMATOR_TAPS             (64)
-#define CONTROL_GLIDE_SECONDS      (0.003)   // notes §7
-#define CONTROL_TICK_SECONDS       (0.001)   // notes §10
+#define CONTROL_GLIDE_SECONDS      (0.003)  // notes §7
+#define CONTROL_TICK_SECONDS       (0.001)  // notes §10
 #define CONTROL_SMOOTH_SECONDS     (0.0003)
-#define KEYTRACK_REFERENCE_NOTE    (64.0)    // measured: keytrack changes nothing at note 64
-#define ENV_CUTOFF_PER_UNIT        (2.0)     // cutoff steps per filter-env amount step from 64, measured
-#define OSC_INTO_FILTER            (0.3)     // notes §4
+#define KEYTRACK_REFERENCE_NOTE    (64.0)   // measured: keytrack changes nothing at note 64
+#define ENV_CUTOFF_PER_UNIT        (2.0)    // cutoff steps per filter-env amount step from 64, measured
+#define OSC_INTO_FILTER            (0.3)    // notes §4
 // notes §25: osc 3 as a control - AC coupled, then into the cutoff, osc 2's level or the drive
-#define OSC3_TO_CUTOFF_STEPS       (28.0)    // per unit of osc 3 (+-1) at full level, measured
-#define OSC3_TO_DRIVE              (30.0)    // drive units per unit at full level, measured
-#define OSC3_FB_GAIN               (5.7)     // the drive's output back into the mixer, at full level: measured with a saw
-#define FB_SEED                    (1e-5)
+#define OSC3_TO_CUTOFF_STEPS       (125.0)  // per unit of osc 3 (+-1) at full level, fitted to P002
+#define OSC3_TO_DRIVE              (30.0)   // drive units per unit at full level, measured
+#define OSC3_FB_GAIN               (5.7)    // the drive's output back into the mixer, at full level: measured with a saw
 #define OSC3_COUPLING_HZ           (14.0)
-#define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
+#define OUTPUT_GAIN                (3.926)  // notes §19: the instrument's own level
 
 // notes §13: the mod matrix's targets, in the instrument's list order
 enum {
@@ -120,7 +120,11 @@ enum {
 #define eModMathFirst           (25)
 #define DELAY_LINE_MS           (1024)
 
-#define PULSE_LEVEL             (0.61)  // notes §30: a pulse against the saw, measured
+#define PARA8_VOICE_LEVEL       (0.263) // notes §12: one voice against the same pulse played mono, measured
+#define PARA4_VOICE_LEVEL       (0.363)
+#define NOISE_FLOOR             (1e-5)  // about -100 dB: the analogue floor
+#define NOISE_LEVEL             (1.585) // notes §34: +4 dB, measured against the saw
+#define PULSE_LEVEL             (0.525) // notes §30: a pulse against the saw, measured
 #define LFO_SLOW_SHAPES_FROM    (5)     // sSIN on: free-running, never restarted by a note
 
 // notes §21: unison - 8 oscillators, detune × 1.25 / 256 semitone apart, symmetric about the note
@@ -136,6 +140,7 @@ enum {
 #define FADE_RELEASE_SLOPE      (0.61)
 #define FADE_SILENT             (1e-4)
 #define SHAPE_PARA8             (8)
+#define KEYTRACK_OFF_NOTE       (60.0)       // notes §31
 #define SHAPE_PARA4             (9)
 
 typedef struct {
@@ -154,6 +159,10 @@ typedef struct {
     tP2Voice    voice[PARA_VOICES_MAX];
     tP2Dco      unison[UNISON_OSCS]; // notes §21
     tP2Drive    drive;
+    tP2Arp      arp;                 // notes §32
+    double      arpTicks;            // its own clock, when no host is playing
+    bool        arpGlide;            // the arp step now starting glides
+    double      source[25];          // the mod sources at the last control tick (the arp\'s accent)
     double      driveOut;            // notes §25: the last drive output, which osc 3\'s FB shape feeds back
     double      releaseVelocity;     // notes §28: the last note-off\'s
     bool        sustained[128];      // notes §28: released while the pedal was down
@@ -191,6 +200,7 @@ typedef struct {
     double      cutoff;      // gliding towards the parameter, in steps
     double      resonance;
     double      lastNote;
+    int         oversample; // notes §33: 1, 2 or 4
     double      decimator[DECIMATOR_TAPS];
     double      history[DECIMATOR_TAPS];
     uint32_t    historyPos;
@@ -224,9 +234,14 @@ static double bend_semitones(const tP2Plugin * p) {
 
 // notes §9
 static int32_t osc_pitch(const tP2Plugin * p, double note, uint32_t semiId, uint32_t detuneId) {
-    int    which = (semiId == kP2ParamOsc1Semitone) ? eModOsc1Pitch : ((semiId == kP2ParamOsc2Semitone) ? eModOsc2Pitch : eModOsc3Pitch);
-    double mod   = p->mod[eModPitch] + p->mod[which] + bend_semitones(p);
+    int      which = (semiId == kP2ParamOsc1Semitone) ? eModOsc1Pitch : ((semiId == kP2ParamOsc2Semitone) ? eModOsc2Pitch : eModOsc3Pitch);
+    double   mod   = p->mod[eModPitch] + p->mod[which] + bend_semitones(p);
+    uint32_t keyId = (semiId == kP2ParamOsc1Semitone) ? kP2ParamOsc1Keytrack : ((semiId == kP2ParamOsc2Semitone) ? kP2ParamOsc2Keytrack : UINT32_MAX);
 
+    // notes §31: Keytrack OFF holds the oscillator at note 60, its offsets and modulation still applied
+    if ((keyId != UINT32_MAX) && (plain_int(p, keyId) == 0) && (plain_int(p, kP2ParamOsc1Shape) < SHAPE_PARA8)) {
+        note = KEYTRACK_OFF_NOTE;
+    }
     return p2_pitch_from_midi_note(note + plain(p, semiId) + mod) + ((plain_int(p, detuneId) - 64) * DETUNE_PITCH_PER_STEP);
 }
 
@@ -237,7 +252,7 @@ static void update_dcos(tP2Plugin * p) {
         return;
     }
     double  note   = (double)p->glidePitch / 256.0;
-    double  rate   = p->sampleRate * OVERSAMPLE;
+    double  rate   = p->sampleRate * p->oversample;
     int32_t shape3 = plain_int(p, kP2ParamOsc3Shape);
 
     p2_dco_set(&p->dco[0], osc_pitch(p, note, kP2ParamOsc1Semitone, kP2ParamOsc1Detune), width_from_dial((int32_t)lround(fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc1Width) + p->mod[eModPulseWidth1])))),
@@ -261,7 +276,7 @@ static int unison_mode(const tP2Plugin * p) {
 static void set_unison(tP2Plugin * p) {
     int    mode  = unison_mode(p);
     int    notes = ((mode == 2) || (mode == 4)) ? ((p->noteCount < UNISON_OSCS) ? p->noteCount : UNISON_OSCS) : 1;
-    double rate  = p->sampleRate * OVERSAMPLE;
+    double rate  = p->sampleRate * p->oversample;
     double step  = plain(p, kP2ParamUnisonDetune) * UNISON_SPACING;
 
     if ((mode == 0) || (p->noteCount == 0)) {
@@ -286,7 +301,7 @@ static double voice_fade_out(const tP2Plugin * p, uint32_t fadeParam) {
     double value   = plain(p, kP2ParamEnvARelease) - FADE_RELEASE_OFFSET - (FADE_RELEASE_SLOPE * (127.0 - plain(p, fadeParam)));
     double seconds = (value <= 0.0) ? 0.0 : p2_env_decay_seconds(value);   // to -40 dB
 
-    return (seconds <= 0.0) ? 0.0 : exp(-log(100.0) / (seconds * p->sampleRate * OVERSAMPLE));
+    return (seconds <= 0.0) ? 0.0 : exp(-log(100.0) / (seconds * p->sampleRate * p->oversample));
 }
 
 static int para_voices(const tP2Plugin * p) {
@@ -296,7 +311,7 @@ static int para_voices(const tP2Plugin * p) {
 }
 
 static void set_voice_pitch(tP2Plugin * p, tP2Voice * v) {
-    double rate = p->sampleRate * OVERSAMPLE;
+    double rate = p->sampleRate * p->oversample;
 
     p2_dco_set(&v->a, osc_pitch(p, v->note, kP2ParamOsc1Semitone, kP2ParamOsc1Detune), width_from_dial((int32_t)lround(fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc1Width) + p->mod[eModPulseWidth1])))),
                eP2ShapePulse, rate);
@@ -360,7 +375,7 @@ static double white_noise(tP2Plugin * p) {
 
 // notes §5
 static void build_decimator(tP2Plugin * p) {
-    double cutoff = 0.45 / OVERSAMPLE;    // of the oversampled rate
+    double cutoff = 0.45 / p->oversample;    // of the oversampled rate
     double sum    = 0.0;
 
     for (int i = 0; i < DECIMATOR_TAPS; i++) {
@@ -375,6 +390,21 @@ static void build_decimator(tP2Plugin * p) {
     for (int i = 0; i < DECIMATOR_TAPS; i++) {
         p->decimator[i] /= sum;
     }
+}
+
+// notes §33: a new factor rebuilds what depends on the rate; the filter and drive start again from rest
+static void apply_oversample(tP2Plugin * p) {
+    int factor = 1 << plain_int(p, kP2ParamOversample);
+
+    if (factor == p->oversample) {
+        return;
+    }
+    p->oversample = factor;
+    build_decimator(p);
+    memset(p->history, 0, sizeof(p->history));
+    p2_filter_init(&p->filter, p->sampleRate * p->oversample);
+    p2_drive_init(&p->drive, p->sampleRate * p->oversample);
+    update_dcos(p);
 }
 
 static void update_filter(tP2Plugin * p) {
@@ -461,6 +491,7 @@ static void control_tick(tP2Plugin * p, double dt) {
     source[10]               = source[9];
     source[23]               = (highest_note(p) - KEYTRACK_REFERENCE_NOTE) / 64.0;
     source[24]               = (lowest_note(p) - KEYTRACK_REFERENCE_NOTE) / 64.0;
+    memcpy(p->source, source, sizeof(p->source));
 
     // notes §18: the math destinations start each tick afresh, except the delay line and the smoother
     double mod1Shift        = p->mod[eModMod1Amount];
@@ -560,6 +591,24 @@ static void glide_controls(tP2Plugin * p, bool jump) {
     p->resonance += (plain(p, kP2ParamResonance) - p->resonance) * coeff;
 }
 
+// notes §35: the instrument's oscillators run free, so their phases at a note are anyone's; each instance starts its
+// own somewhere (the same each time it is created, so an offline render repeats)
+static void free_running_phases(tP2Plugin * p) {
+    static uint32_t instances = 0;
+    uint32_t        seed      = 0x9E3779B9u * ++instances;
+    tP2Dco *        dcos[]    = {&p->dco[0], &p->dco[1], &p->dco[2]};
+
+    for (int i = 0; i < 3; i++) {
+        seed           = (seed * 1664525u) + 1013904223u;
+        dcos[i]->phase = (double)(seed >> 8) / 16777216.0;
+    }
+
+    for (int i = 0; i < UNISON_OSCS; i++) {
+        seed               = (seed * 1664525u) + 1013904223u;
+        p->unison[i].phase = (double)(seed >> 8) / 16777216.0;
+    }
+}
+
 static void * p2_create(const tSynthLibPluginDesc * desc) {
     tP2Plugin * p = (tP2Plugin *)calloc(1, sizeof(tP2Plugin));
 
@@ -570,16 +619,20 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     }
     p->sampleRate = 48000.0;
     p->noise      = 0x9E3779B9u;
+    p->oversample = OVERSAMPLE_DEFAULT;
+    free_running_phases(p);
     snprintf(p->soundName, sizeof(p->soundName), "INIT");
+    p2_arp_reset(&p->arp);
 
     for (uint32_t i = 0; i < kP2ParamCount; i++) {
         p->param[i] = gP2Params[i].defaultNormalized;
     }
 
+    p->oversample = 1 << plain_int(p, kP2ParamOversample);
     build_decimator(p);
     p2_patch_cache_load();
-    p2_filter_init(&p->filter, p->sampleRate * OVERSAMPLE);
-    p2_drive_init(&p->drive, p->sampleRate * OVERSAMPLE);
+    p2_filter_init(&p->filter, p->sampleRate * p->oversample);
+    p2_drive_init(&p->drive, p->sampleRate * p->oversample);
     glide_controls(p, true);
     p->cutoffNow  = p->cutoffTarget = p->cutoff;
     p->lastNote   = KEYTRACK_REFERENCE_NOTE;
@@ -631,8 +684,8 @@ static void p2_prepare(void * inst, const tSynthLibSetup * setup) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
     p->sampleRate = setup->sampleRate;
-    p2_filter_init(&p->filter, p->sampleRate * OVERSAMPLE);
-    p2_drive_init(&p->drive, p->sampleRate * OVERSAMPLE);
+    p2_filter_init(&p->filter, p->sampleRate * p->oversample);
+    p2_drive_init(&p->drive, p->sampleRate * p->oversample);
     glide_controls(p, true);
     p->cutoffNow  = p->cutoffTarget = p->cutoff;
     p->lastNote   = KEYTRACK_REFERENCE_NOTE;
@@ -689,12 +742,7 @@ static bool trigger(tP2Env * e, int mode, bool fresh) {
     return true;
 }
 
-static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    tP2Plugin * p     = (tP2Plugin *)inst;
-
-    (void)channel;
-    (void)sampleOffset;
-
+static void play_note_on(tP2Plugin * p, uint8_t note, float velocity) {
     remove_note(p, note);
     p->sustained[note & 127] = false;
 
@@ -702,7 +750,7 @@ static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocit
         memmove(&p->notes[0], &p->notes[1], NOTE_STACK_SIZE - 1);
         p->noteCount--;
     }
-    bool        first = (p->noteCount == 0);
+    bool first = (p->noteCount == 0);
 
     p->velocity              = velocity;
 
@@ -710,8 +758,8 @@ static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocit
     p->lastNote              = note;
 
     // notes §17: OFF jumps, NORM always glides, the fingered modes glide only on a legato note
-    int         mode  = plain_int(p, kP2ParamGlideMode);
-    bool        glide = p->glideKnown && ((mode == 1) || ((mode >= 2) && !first));
+    int  mode  = plain_int(p, kP2ParamGlideMode);
+    bool glide = p->glideKnown && ((mode == 1) || ((mode >= 2) && !first) || p->arpGlide);
 
     if (!glide) {
         p->glidePitch = (int64_t)note * 256;
@@ -746,6 +794,74 @@ static void release_note(tP2Plugin * p, uint8_t note) {
     }
 }
 
+// notes §32: with the arpeggiator on, keys go to it and it plays the voice
+static bool arp_on(const tP2Plugin * p) {
+    return plain_int(p, kP2ParamArpActive) != eP2ArpOff;
+}
+
+static void arp_settings(const tP2Plugin * p, tP2ArpSettings * s) {
+    int    accent  = plain_int(p, kP2ParamArpAccent);
+
+    s->active   = plain_int(p, kP2ParamArpActive);
+    s->mode     = plain_int(p, kP2ParamArpMode);
+    s->octaves  = plain_int(p, kP2ParamArpRange) + 1;
+    s->clock    = plain_int(p, kP2ParamArpClock);
+    s->duration = plain_int(p, kP2ParamArpStep);
+    s->swing    = (plain(p, kP2ParamArpSwing) - 14.0) / 100.0;   // measured: the first of a pair's share
+    s->delay    = (plain(p, kP2ParamArpDelay) - 64.0) / 100.0;
+    s->length   = plain_int(p, kP2ParamArpLength) + 1;
+    s->quirks   = anomalies_on(p);
+
+    for (int i = 0; i < P2_ARP_STEPS; i++) {
+        s->steps[i] = (uint8_t)plain_int(p, kP2ParamArpStep1 + (uint32_t)i);
+    }
+
+    // notes §32: a bipolar source is centred on 64, a unipolar one runs from 0 (the instrument's own scaling)
+    bool   bipolar = (accent == 1) || (accent == 2) || (accent == 4) || (accent == 5) || ((accent >= 9) && (accent <= 11));
+    double v       = p->source[(accent > 0) && (accent < 25) ? accent : 0];
+
+    s->accent   = (accent == 0) ? -1.0 : fmin(127.0, fmax(0.0, bipolar ? (64.0 + (63.0 * v)) : (127.0 * v)));
+}
+
+static void play_note_off(tP2Plugin * p, uint8_t note);
+
+static void arp_note(void * user, int note, int velocity, bool on, bool glide) {
+    tP2Plugin * p = (tP2Plugin *)user;
+
+    if (on) {
+        p->arpGlide = glide;
+        play_note_on(p, (uint8_t)note, (float)velocity / 127.0f);
+        p->arpGlide = false;
+    } else {
+        play_note_off(p, (uint8_t)note);
+    }
+}
+
+static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
+    tP2Plugin * p = (tP2Plugin *)inst;
+
+    (void)channel;
+    (void)sampleOffset;
+
+    if (arp_on(p)) {
+        tP2ArpSettings s;
+
+        arp_settings(p, &s);
+        p2_arp_key(&p->arp, &s, note, (int)lround(velocity * 127.0f), true);
+        return;
+    }
+    play_note_on(p, note, velocity);
+}
+
+static void play_note_off(tP2Plugin * p, uint8_t note) {
+    // notes §28: with the pedal down the note goes on sounding until the pedal is lifted
+    if (plain(p, kP2ParamSustain) >= 64.0) {
+        p->sustained[note & 127] = true;
+        return;
+    }
+    release_note(p, note);
+}
+
 static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
@@ -754,12 +870,14 @@ static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
 
     p->releaseVelocity = velocity;
 
-    // notes §28: with the pedal down the note goes on sounding until the pedal is lifted
-    if (plain(p, kP2ParamSustain) >= 64.0) {
-        p->sustained[note & 127] = true;
+    if (arp_on(p) || p->arp.running) {
+        tP2ArpSettings s;
+
+        arp_settings(p, &s);
+        p2_arp_key(&p->arp, &s, note, 0, false);
         return;
     }
-    release_note(p, note);
+    play_note_off(p, note);
 }
 
 static void release_sustained(tP2Plugin * p) {
@@ -773,39 +891,56 @@ static void release_sustained(tP2Plugin * p) {
 
 static void p2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * t) {
-    tP2Plugin * p        = (tP2Plugin *)inst;
-    double      level1   = level_gain(p, kP2ParamOsc1Level);
-    double      level2   = level_gain(p, kP2ParamOsc2Level);
+    tP2Plugin *    p         = (tP2Plugin *)inst;
+    double         level1    = level_gain(p, kP2ParamOsc1Level);
+    double         level2    = level_gain(p, kP2ParamOsc2Level);
     // notes §30: a pulse is quieter than the DCO's saw; the three oscillators' share in the mix
-    int32_t     shape1   = plain_int(p, kP2ParamOsc1Shape);
-    double      mix1     = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
-    double      mix2     = (plain_int(p, kP2ParamOsc2Shape) == 0) ? PULSE_LEVEL : 1.0;
-    int32_t     shape3   = plain_int(p, kP2ParamOsc3Shape);
-    double      level3   = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0;   // EXT: no input in the plug-in yet
-    bool        feedback = shape3 == 4;
-    double      coupling = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * OVERSAMPLE));
-    int         routing  = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);         // notes §25
-    int         curve    = plain_int(p, kP2ParamDriveCurve);
-    double      drive    = plain(p, kP2ParamDrive) + p->mod[eModDrive];
-    double      noise    = level_gain(p, kP2ParamNoiseLevel);
-    int         voices   = para_voices(p);
-    bool        unison   = unison_mode(p) != 0;
-    double      fadeStep = 1.0 / (PARA_FADE_SECONDS * p->sampleRate * OVERSAMPLE);
-    double      fadeOut1 = voice_fade_out(p, kP2ParamOsc1Fade);
-    double      fadeOut2 = voice_fade_out(p, kP2ParamOsc2Fade);
-    bool        steps    = anomalies_on(p);
-    double      master   = pow(plain(p, kP2ParamMaster) / 127.0, 2.0);   // notes §19
-    int         tick     = steps ? (int)lround(CONTROL_TICK_SECONDS * p->sampleRate) : 1;
-    double      smooth   = 1.0 - exp(-1.0 / (CONTROL_SMOOTH_SECONDS * p->sampleRate));
+    int32_t        shape1    = plain_int(p, kP2ParamOsc1Shape);
+    double         mix1      = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
+    double         mix2      = (plain_int(p, kP2ParamOsc2Shape) == 0) ? PULSE_LEVEL : 1.0;
+    int32_t        shape3    = plain_int(p, kP2ParamOsc3Shape);
+    double         level3    = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0; // EXT: no input in the plug-in yet
+    bool           feedback  = shape3 == 4;
+    double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
+    int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
+    int            curve     = plain_int(p, kP2ParamDriveCurve);
+    double         drive     = plain(p, kP2ParamDrive) + p->mod[eModDrive];
+    double         noise     = NOISE_LEVEL * level_gain(p, kP2ParamNoiseLevel);
+    int            voices    = para_voices(p);
+    bool           unison    = unison_mode(p) != 0;
+    double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL;   // notes §12
+    double         fadeStep  = 1.0 / (PARA_FADE_SECONDS * p->sampleRate * p->oversample);
+    // notes §26: a released voice fades only while other keys hold the amp envelope; with every key up, the
+    // envelope's own release is the release
+    double         fadeOut1  = (p->noteCount > 0) ? voice_fade_out(p, kP2ParamOsc1Fade) : 1.0;
+    double         fadeOut2  = (p->noteCount > 0) ? voice_fade_out(p, kP2ParamOsc2Fade) : 1.0;
+    bool           steps     = anomalies_on(p);
+    double         master    = pow(plain(p, kP2ParamMaster) / 127.0, 2.0); // notes §19
+    int            tick      = steps ? (int)lround(CONTROL_TICK_SECONDS * p->sampleRate) : 1;
+    double         smooth    = 1.0 - exp(-1.0 / (CONTROL_SMOOTH_SECONDS * p->sampleRate));
 
     if ((curve == eP2DriveFx) && !steps) {
         curve = eP2DriveNone;      // notes §25: FX is silent on the instrument, a measured quirk
     }
     (void)in;
     (void)numIn;
-    (void)t;
+
+    tP2ArpSettings arp;
+    bool           hostClock = (t != NULL) && t->playing && t->tempoValid && t->musicTimeValid && (t->tempo > 0.0);
+    double         bpm       = hostClock ? t->tempo : (46.0 + (2.0 * plain(p, kP2ParamArpTempo)));   // notes §32
+    double         tickStep  = bpm / 60.0 * P2_ARP_TICKS_PER_QUARTER / p->sampleRate;
+
+    arp_settings(p, &arp);
+
+    if (hostClock) {
+        p->arpTicks = t->projectTimeMusic * P2_ARP_TICKS_PER_QUARTER;
+    }
 
     for (uint32_t i = 0; i < frames; i++) {
+        if (arp.active != eP2ArpOff || p->arp.running) {
+            p2_arp_run(&p->arp, &arp, p->arpTicks, hostClock, arp_note, p);
+        }
+        p->arpTicks  += tickStep;
         glide_controls(p, false);
 
         if (--p->tickCountdown <= 0) {
@@ -816,7 +951,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
         p->cutoffNow += (p->cutoffTarget - p->cutoffNow) * smooth;
         update_filter(p);
 
-        for (int o = 0; o < OVERSAMPLE; o++) {
+        for (int o = 0; o < p->oversample; o++) {
             double osc3 = p2_dco_next(&p->dco[2]);
             bool   sync = plain_int(p, kP2ParamOsc3Sync) != 0;
 
@@ -825,15 +960,15 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             if (sync && p->dco[2].wrapped) {          // notes §22: osc 3's edge restarts osc 2
                 p2_dco_restart(&p->dco[1]);
             }
-            double osc  = noise * white_noise(p);
-            double cv3  = osc3 - p->osc3Coupled;      // notes §25
+            double osc  = (noise + NOISE_FLOOR) * white_noise(p); // notes §34: the floor a self-oscillation starts from
+            double cv3  = osc3 - p->osc3Coupled;                  // notes §25
 
             p->osc3Coupled    += coupling * cv3;
             double amp2 = level2;
 
             if (feedback) {
                 // notes §25: subtracted, as on the instrument; the seed is the noise floor a loop starts from
-                osc += (FB_SEED * white_noise(p)) - (level3 * OSC3_FB_GAIN * p->driveOut);
+                osc -= level3 * OSC3_FB_GAIN * p->driveOut;
             } else if (routing == 0) {
                 osc += level3 * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0);
             } else if (routing == 1) {
@@ -867,7 +1002,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                         if (voices == 4) {
                             pulse += (level2 / fmax(level1, 1e-9)) * pv->fade2 * p2_dco_next(&pv->b);
                         }
-                        osc += PULSE_LEVEL * level1 * pulse;     // both of a voice's pulses
+                        osc += PULSE_LEVEL * paraGain * level1 * pulse;     // both of a voice's pulses
                     }
                 }
             }
@@ -884,10 +1019,13 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
         double acc    = 0.0;
 
-        for (int k = 0; k < DECIMATOR_TAPS; k++) {
+        for (int k = 0; (p->oversample > 1) && (k < DECIMATOR_TAPS); k++) {
             acc += p->decimator[k] * p->history[(p->historyPos + DECIMATOR_TAPS - 1 - k) % DECIMATOR_TAPS];
         }
 
+        if (p->oversample == 1) {
+            acc = p->history[(p->historyPos + DECIMATOR_TAPS - 1) % DECIMATOR_TAPS];
+        }
         float  sample = (float)(OUTPUT_GAIN * acc * master);
 
         for (uint32_t ch = 0; ch < numOut; ch++) {
@@ -904,6 +1042,10 @@ static void program_change(tP2Plugin * p, int program) {
     char   name[P2_SOUND_NAME_LENGTH + 1];
     int    number = p2_patch_program_number(plain_int(p, kP2ParamBank), program);
 
+    // notes §20: the sound already loaded is left as it is, edits and all
+    if (number == atomic_load(&p->programShown)) {
+        return;
+    }
     memcpy(values, p->param, sizeof(values));
 
     if (!p2_patch_cached(number, values, name)) {
@@ -912,7 +1054,7 @@ static void program_change(tP2Plugin * p, int program) {
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         if (  (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamMaster)
-           || (id == kP2ParamProgram) || (id == kP2ParamBank) || (id >= kP2ParamPitchBend) || (values[id] == p->param[id])) {
+           || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
             continue;
         }
         p->param[id] = values[id];
@@ -929,6 +1071,12 @@ static void p2_set_param(void * inst, uint32_t id, double normalized) {
     if ((id == kP2ParamSustain) && (normalized < 0.5) && (p->param[id] >= 0.5)) {
         p->param[id] = normalized;
         release_sustained(p);
+        return;
+    }
+
+    if (id == kP2ParamOversample) {
+        p->param[id] = normalized;
+        apply_oversample(p);
         return;
     }
 
@@ -999,7 +1147,7 @@ static void p2_panel_init(void) {
 // What a sound carries: everything but the plug-in's own settings and the program change's two
 static bool sound_param(uint32_t id) {
     return (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamMaster)
-           && (id != kP2ParamProgram) && (id != kP2ParamBank) && (id < kP2ParamPitchBend);
+           && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));
 }
 
 static void p2_edit_param(void * user, uint32_t id, double normalized) {
@@ -1025,8 +1173,10 @@ static void p2_init_patch(void * user) {
         }
     }
 
-    p->haveBase     = false;
-    p->patchPath[0] = '\0';
+    p->haveBase      = false;
+    p->patchPath[0]  = '\0';
+    p->programSynced = 0;
+    atomic_store(&p->programShown, 0);
     set_sound_name(p, "INIT");
 }
 
@@ -1105,9 +1255,12 @@ static void p2_load_patch(void * user, const char * path) {
         }
     }
 
-    ((tP2Plugin *)user)->haveBase = p2_patch_read_dump(path, ((tP2Plugin *)user)->baseDump);
+    ((tP2Plugin *)user)->haveBase      = p2_patch_read_dump(path, ((tP2Plugin *)user)->baseDump);
     snprintf(((tP2Plugin *)user)->patchPath, sizeof(((tP2Plugin *)user)->patchPath), "%s", path);
     set_sound_name((tP2Plugin *)user, name);
+    // the program it is in the library, if it is: a program change to it is then ignored like the instrument's own
+    ((tP2Plugin *)user)->programSynced = p2_patch_library_number(path);
+    atomic_store(&((tP2Plugin *)user)->programShown, ((tP2Plugin *)user)->programSynced);
     synthlib_log_line("loaded \"%s\" from %s", name, path);
 }
 
