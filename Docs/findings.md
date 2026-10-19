@@ -752,3 +752,4 @@ detuned oscillators beat at different phases - the DCOs do run free.
 - **LP24's stopband refitted to the instrument's noise** (no oscillator, no EXT IN): a notch and a 10 dB bump moving
   with the cutoff are gone, within ~3 dB everywhere (p2Filter notes §7). P006's noise alone and the routed gain on
   it match the instrument within ~1 dB; what is left is LP12's stopband, ~2.5 dB high at 1-2.5 kHz at cutoff 0.
+- **P006's extra noise:** the filter's leak must not get the routed-mix gain (p2Filter notes §8); found by stripping P006 on noise one setting at a time (`p006_noise_steps/`).

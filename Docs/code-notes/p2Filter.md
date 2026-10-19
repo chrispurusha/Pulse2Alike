@@ -62,3 +62,11 @@ level counting only when the model rose above them (the rig's floor).
   and with real patches - three oscillators, the routed mix gain - the saturation broke it (P006's sustain 21-26 dB
   bright, several patches 4-5 dB). Its stopband stays about 2.5 dB high at 1-2.5 kHz at cutoff 0 (P006's noise,
   open).
+
+## 8. The leak does not see the routing gain
+With osc 3 routed away from MIX the instrument's mix reaches the filter 1.8 times as hot (p2Plugin notes §37) - but
+only what passes through the filter rises. P006's noise alone with the filter shut (`p006_noise_steps/`): LEVEL2
+against MIX raises the instrument's output +5 dB up to 250 Hz, +3.7 at 500, +1.7 at 1 kHz, +0.5 at 2 kHz, while its
+stopband levels off near -45 dB - a leak floor, carried around the gain. The engine's leak terms (input and loop
+input) therefore take the input without the routing gain (`leakScale`); P006's late noise went from +3.3 dB at
+1-4 kHz to within ~1 dB in every octave, with nothing else in P006 moved, and nothing changes with osc 3 on MIX.

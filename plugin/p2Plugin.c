@@ -992,6 +992,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         vcaHp     = 1.0 - exp(-2.0 * M_PI * VCA_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         mixGain   = OSC_INTO_FILTER * ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);
+
+    p->filter.leakScale = 1.0 / ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);   // notes §37
     int            curve     = plain_int(p, kP2ParamDriveCurve);
     double         drive     = plain(p, kP2ParamDrive) + p->mod[eModDrive];
     double         rateIn    = p->sampleRate * p->oversample;

@@ -44,6 +44,7 @@ typedef struct {
     double shelfX, shelfY;
     double top2;
     bool   lowPass;
+    double leakScale;   // notes §8: the leak around the loop, which a gain ahead of the filter does not reach
 } tP2Filter;
 
 double p2_filter_oscillation_hz(double cutoff);

@@ -85,6 +85,7 @@ static double tpt_gain(double hz, double sampleRate) {
 
 void p2_filter_init(tP2Filter * f, double sampleRate) {
     memset(f, 0, sizeof(*f));
+    f->leakScale  = 1.0;
     f->sampleRate = sampleRate;
 
     // first-order shelf by the bilinear transform, prewarped at its own corners
@@ -138,7 +139,7 @@ double p2_filter_process(tP2Filter * f, double x) {
     double y2    = one_pole(&f->stage[1], G, y1);
     double y3    = one_pole(&f->stage[2], G, y2);
     double y4    = one_pole(&f->stage[3], G, y3);
-    double out   = (f->mix[0] * x) + (f->mix[1] * (f->lowPass ? uMix : u)) + (f->mix[2] * y1) + (f->mix[3] * y2) + (f->mix[4] * y3) + (f->mix[5] * y4);
+    double out   = (f->leakScale * ((f->mix[0] * x) + (f->mix[1] * (f->lowPass ? uMix : u)))) + (f->mix[2] * y1) + (f->mix[3] * y2) + (f->mix[4] * y3) + (f->mix[5] * y4);
 
     double shelf = (f->shelfB0 * out) + (f->shelfB1 * f->shelfX) - (f->shelfA1 * f->shelfY);
 

@@ -4,7 +4,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 
 ## First
 - Link HW: the Pulse 2's P.XXX does not follow (the sound and its name do, from the dump) and a cutoff turn does not reach it - both are channel messages: check the Pulse 2 MIDI Channel setting (default 1, CT's instrument is on 12) before anything else
-- P006: still more noise on the plug-in - the noise level and the routed gain match the instrument (p006_noise/); LP12's stopband is ~2.5 dB high at 1-2.5 kHz at cutoff 0 and a fitted mix that fixes it breaks under drive (p2Filter notes §7): an LP12 leak that is robust to saturation
 - P010: brighter on the plug-in (CT, listening)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst
 - The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
