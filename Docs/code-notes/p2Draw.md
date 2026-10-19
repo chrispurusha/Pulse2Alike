@@ -51,5 +51,5 @@ step past Pattern Length is greyed. Each step is one parameter, the instrument's
 an edit changes only the bits it shows.
 
 ## 8. Link
-The Link button, left of Prev, shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
+The Link HW button, left of Prev, shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
 plug-in's, through the host's `send`; the panel only reports a failure.

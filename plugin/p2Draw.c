@@ -700,13 +700,13 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
                                  }
         };
         gLinkRect = (tRectangle){{
-                                     PATCH_BAR_X - 66.0, TITLE_Y + 2.0
+                                     PATCH_BAR_X - 72.0, TITLE_Y + 2.0
                                  }, {
-                                     56.0, PATCH_BUTTON_H
+                                     62.0, PATCH_BUTTON_H
                                  }
         };
         // notes §8: lit while the instrument follows the sound
-        draw_button(mainArea, gLinkRect, "Link", (p2_draw_value(kP2ParamHwLink) >= 0.5) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
+        draw_button(mainArea, gLinkRect, "Link HW", (p2_draw_value(kP2ParamHwLink) >= 0.5) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
         draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
         draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
         draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
