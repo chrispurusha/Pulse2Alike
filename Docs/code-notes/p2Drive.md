@@ -25,3 +25,16 @@ oscillators, at every Drive). Anomalies on: silent, as the instrument. Off: as N
 
 The 0.888 is in the instrument's units and does not depend on the plug-in's output gain: when that gain rose to
 match the instrument (p2Plugin notes §19), the engine's level before the VCA was unchanged.
+
+## 3. FUZZ, refitted to the instrument's own oscillator (2026-10-19)
+A triangle from osc 1 through the open LP24, captured with Drive Curve NONE (the input) and FUZZ at Drive 0, 16,
+32, 64, 96 and 127, at osc levels 127 and 64 (`/Volumes/ext-ssd/Captures/Pulse2/drive_tri/`). The same structure as
+§1, fitted cycle by cycle with the NONE take as the input in output units: 7% of the peak against 23% for the 1 kHz
+EXT IN fit, which it replaces. Drive 16 is now a table point (P003 sits at 17).
+Open, both seen in the same captures:
+- below about -35 dB of input the instrument's FUZZ falls away faster than its input (osc level 16: -6 dB at Drive 0,
+  where level 24 gains 2 dB) - an expansion this structure cannot make. The engine is 6-14 dB loud there, and P003's
+  sustain (filter closed to 24) is there: P003 is 6-9 dB loud and 20 dB dark. Two expander forms (after the gain, on
+  the raw input) did not fit; the shapes say the small-signal path is rounded, not gated.
+- TUBE fits neither this structure nor an input-coupled one: its positive part narrows as Drive rises, a bias that
+  moves with Drive, which the feedback coupling here cancels. TUBE keeps its 1 kHz fit.

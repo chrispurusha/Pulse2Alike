@@ -3,6 +3,7 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- P003 / FUZZ: small-signal expansion below about -35 dB input (p2Drive notes §3); TUBE: bias moving with Drive
 - P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched
 - P005: sustain 6-7 dB dark
 - P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet

@@ -736,3 +736,6 @@ detuned oscillators beat at different phases - the DCOs do run free.
   the level-dependent darkening (p2Filter notes §3, p2Plugin §34, §39, §40). Saw now within 0.9 dB to 7.4 kHz
   (was 5.4 dB). tools/plotwave.py draws captures against renders; osc_analyse.read() now takes 24-bit files.
 - Link (plug-in to instrument): CCs for what has one, edit-buffer dumps for the rest - p2Plugin notes §41, p2Hardware.
+- **Drive from the instrument's own triangle** (no EXT IN): FUZZ refitted, 23% -> 7% of the peak for normal levels
+  (p2Drive notes §3). Found: FUZZ expands below about -35 dB input (P003's sustain), TUBE's bias moves with Drive;
+  both open. Both drives limit hard: TUBE and FUZZ never pass 0.08-0.10 of full scale at Volume 40.

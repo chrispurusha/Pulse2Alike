@@ -24,23 +24,24 @@
 // at Volume 40, in full scale)
 #define HARDWARE_UNITS_PER_ENGINE    (0.888)
 #define DC_BLOCK_HZ                  (5.0)
-#define DRIVE_POINTS                 (5)
+#define DRIVE_POINTS                 (6)
 
 typedef struct {
     double positive, negative;   // the clipper's ceilings
     double bias;
     double couplingHz;
     double shelfDirect, shelfHz; // how much passes straight, and the low-pass the rest goes through
-    double gainDb[DRIVE_POINTS]; // at Drive 0, 32, 64, 96, 127
+    double gainDb[DRIVE_POINTS]; // at kDriveAt
 } tCurveShape;
 
-// notes §1: fitted to the instrument's 1 kHz captures; within about 11-13% of the peak, cycle by cycle
-static const tCurveShape kTube = {
-    0.0751, 0.0359, -0.200, 103.7, 0.000, 3123.0, {-7.25, 5.90, 9.86, 13.18, 15.02}
+static const double      kDriveAt[DRIVE_POINTS] = {0.0, 16.0, 32.0, 64.0, 96.0, 127.0};
+
+// notes §1: TUBE fitted to the instrument's 1 kHz captures (11-13% of the peak), Drive 16 interpolated; open
+static const tCurveShape kTube                  = {
+    0.0751, 0.0359, -0.200, 103.7, 0.000, 3123.0, {-7.25, -0.68, 5.90, 9.86, 13.18, 15.02}
 };
-static const tCurveShape kFuzz = {
-    0.0445, 0.0445, -0.049, 85.2, 0.624, 4757.0, {3.21, 14.16, 19.28, 21.00, 21.00}
-};
+// notes §3: FUZZ fitted to its own triangle through the open filter, two levels, six Drive settings (7% of the peak)
+static const tCurveShape kFuzz                  = {0.0634, 0.0628, -0.182, 29.6, 0.653, 214, {0.96, 10.66, 12.78, 16.18, 18.35, 19.71}};
 
 void p2_drive_init(tP2Drive * d, double rate) {
     d->rate    = rate;
@@ -51,11 +52,13 @@ void p2_drive_init(tP2Drive * d, double rate) {
 }
 
 static double gain_db(const tCurveShape * c, double drive) {
-    double at = fmin(127.0, fmax(0.0, drive)) / 32.0;
-    int    i  = (at >= 3.0) ? 3 : (int)at;
-    double t  = (i == 3) ? ((fmin(127.0, fmax(0.0, drive)) - 96.0) / 31.0) : (at - i);
+    double d = fmin(127.0, fmax(0.0, drive));
+    int    i = 0;
 
-    return c->gainDb[i] + (t * (c->gainDb[i + 1] - c->gainDb[i]));
+    while ((i < (DRIVE_POINTS - 2)) && (d > kDriveAt[i + 1])) {
+        i++;
+    }
+    return c->gainDb[i] + (((d - kDriveAt[i]) / (kDriveAt[i + 1] - kDriveAt[i])) * (c->gainDb[i + 1] - c->gainDb[i]));
 }
 
 static double one_pole(double hz, double rate) {
