@@ -1,6 +1,6 @@
 # Pulse2Alike
 
-An reproduction inspired by the Waldorf Pulse 2 as a VST3 and Audio Unit instrument.
+A reproduction inspired by the Waldorf Pulse 2 as a VST3 and Audio Unit instrument.
 
 The Pulse 2's oscillators are DCOs. Their pitch, pulse-width and level laws are digital and are reproduced
 exactly. The analogue parts are modelled from captures of a real Pulse 2: the oscillator wave shapes, the
