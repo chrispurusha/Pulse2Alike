@@ -15,13 +15,13 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take
 
 ## Drive
-- Way 2 (thorough): long repeated quiet-level captures for the settling; FUZZ and TUBE as measured curves per Drive; sines 50 Hz-5 kHz and a two-tone through EXT, filter open, at stepped levels - p2Drive notes §4
-- The quiet-input loss depends on pitch: notes 72/84 lose 2-3 dB less than note 48 (p2Drive notes §5)
-- P003 on NONE is ~10 dB darker above 250 Hz than the instrument: find what upstream (filter near cutoff 24?)
-- Fit the multi-frequency EXT captures (`192k/drive/drive_*_f{100,300,1000,3000}.wav`)
-- FUZZ at quiet inputs (-30 dBFS EXT): even harmonics ~15 dB above the instrument's - the fitted ceilings and bias are slightly lopsided (p2Drive notes §6)
-- TUBE: its fitted bias sits at the fit's bound and the shape is 8 dB rms off on harmonics - a better structure for its moving bias (a per-Drive bias went degenerate, notes §6)
-- Osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
+In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound better, not perfect):
+1. P003 on NONE is ~10 dB darker above 250 Hz than the instrument, so FUZZ gets a dull input (+13.5 dB at 1-4 kHz against +24.5): find what upstream - the filter near cutoff 24? Likely the same as P001/P014 not brightening at note 48 (First)
+2. The quiet-input loss depends on pitch: notes 72/84 lose 2-3 dB less than note 48 (p2Drive notes §5) - fit the multi-frequency EXT captures (`192k/drive/drive_*_f{100,300,1000,3000}.wav`) for a coupling capacitor's frequency dependence, then let the meter or knee follow
+3. FUZZ at quiet inputs (-30 dBFS EXT): even harmonics ~15 dB above the instrument's - a structure where the bias sets the coupling loop's operating point without lopsided clipping (e.g. the bias on the coupling path, not the clipper) - p2Drive notes §6
+4. TUBE: its fitted bias sits at the fit's bound and it is 8 dB rms off on harmonics - a bias that follows the signal's level (its duty changes with Drive); a fixed bias per Drive went degenerate - p2Drive notes §6
+5. Rig: the settling - long repeated quiet notes at a few Drives (FUZZ's gain climbs ~3 dB over 0.75 s; does the previous note matter?) - way 2 of p2Drive notes §4; with it, sines 50 Hz-5 kHz and a two-tone through EXT at stepped levels
+6. Rig: osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
 
 ## Rig
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture
