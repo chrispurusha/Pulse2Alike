@@ -3,72 +3,56 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- Link HW: the Pulse 2's P.XXX does not follow (the sound and its name do, from the dump) and a cutoff turn does not reach it - both are channel messages: check the Pulse 2 MIDI Channel setting (default 1, CT's instrument is on 12) before anything else
 - P010: brighter on the plug-in (CT, listening)
-- Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst
+- Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
-- Drive, way 1 (pragmatic, P003): a level-dependent gain on the static FUZZ fit, from the level sweep - p2Drive notes §4
-- Drive, way 2 (thorough): long repeated quiet-level captures for the settling; FUZZ and TUBE as measured curves per Drive - p2Drive notes §4
-- P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched
+- The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
+- P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched; P001/P014 at note 48 do not brighten again after the filter envelope decays as the instrument does (~18 dB over half a second)
 - P005: sustain 6-7 dB dark
-- P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet
-- P011: compare at a fixed phase - its slow LFO (sTRI) runs free on the instrument, so no take starts where the plug-in does
-- P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp, whose HOLD also latches notes from the take before; then the arp on its own, released (Arp OFF, then ON) before each take
+- P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
+- P011: compare at a fixed phase - its slow LFO (sTRI, 24 s period) runs free on the instrument, so no take starts where the plug-in does
+- P013 -2 dB / P014 +2 dB in level
+- P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take
+
+## Drive
+- Way 1 (pragmatic, P003): a level-dependent gain on the static FUZZ fit, from the level sweep - p2Drive notes §4
+- Way 2 (thorough): long repeated quiet-level captures for the settling; FUZZ and TUBE as measured curves per Drive; sines 50 Hz-5 kHz and a two-tone through EXT, filter open, at stepped levels - p2Drive notes §4
+- Fit the multi-frequency EXT captures (`drive/drive_*_f{100,300,1000,3000}.wav`)
+- TUBE's H3 and FUZZ's even harmonics, and TUBE's bias moving with Drive
+- Osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
 
 ## Rig
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture
 - Read INPUT GAIN off the panel and record it with the EXT captures; sweep the EXT level per step
 
 ## Oscillators
-- Fit OSC_INTO_FILTER and the loop saturation to the saw-level table (findings: level 127/64/32 harmonics)
-- Level law into the engine: ((CC − 12.6)/114.4)^0.864, silent below 13; detune = 2/256 semitone per step (both measured)
-- Capture each shape at six pitches, filter open (design §5.1)
-- Find how PWM (mod matrix, LFO) adds to the width word; the dial is dial << 8 (confirmed)
-- Model the pulse edges' slew (duty measures 0.002-0.009 wider than the law)
-- Model the ramp shape, reset spike and amplitude against pitch from the captures
-- Osc 3, sync, FB, X1/X3-PWM, APW, unison and paraphonic modes
+- Osc 2 X3-PWM and X1-PWM are not built: list index 3 plays APW (osc 1's shape 3) and 4 a saw - p2Plugin notes §8
+- Model the pulse edges' slew (duty measures 0.002-0.009 wider than the law), the ramp's shape and reset spike against pitch
+- How PWM from the mod matrix adds to the width word (the dial is dial << 8, confirmed)
 
 ## Filter
-- Modulation into the cutoff at 1 kHz with a ~0.3 ms smoother when Anomalies is on, continuous when off (measured: findings 2026-10-17); then run mod_step's analysis on the plug-in's output to compare
-- Measure the step shape more closely: a faster LFO (larger steps), and the same test on pitch modulation
-- Retake the LP12/BP12/HP12 resonance-92 sweeps at −45 dBFS (LP24 confirmed compressed at −30)
-- Fit two 2-pole sections (each with its own damping) inside the global loop; the one-pole cascade fails (findings)
-- Retake LP24 resonance 88 at −45 dBFS
+- Retake the LP12/BP12/HP12 resonance-92 and LP24 resonance-88 sweeps at −45 dBFS (LP24 confirmed compressed at −30)
 - Level sweeps (−40..−6 dBFS) per mode at a few settings, for the nonlinearity
-- Keytrack law (CC51) against note
-- Filter envelope amount law (CC52)
+- LP12's stopband: ~2.5 dB high at 1-2.5 kHz at cutoff 0
+- The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
 
 ## Engine
+- Mod matrix: per-target amount scaling (measured on the cutoff only; the other targets are provisional)
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs
 - Capture to confirm: SNG2/RET2 restart from zero, RET3's exception, FNON/FOFF glide, LFO 2's delay (a wait before it starts?)
-- LFOs + mod matrix (13 of P000-P014 use mod slots): measure rate law, shapes, delay, phase, per-target amount scaling
-- APW (osc 1 shape 3): P006/P010/P013 miss by up to 46 dB
-- Looping envelopes, osc 3 routing, sync, drive; rerun tools/patch_validate.py 0 14 after each
+- Osc 3's LEVEL2 / VCF / DRIVE depths and FB (depths are guesses beyond LEVEL2 at 8 Hz)
+- FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?
+- Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127
+- Arp Pattern (0-14): what it selects
+- Arp SOFT and HARD: measure their velocity offsets (the plug-in uses -32 and +64)
+- Arp, by program change: does a chord kept by one HOLD sound start again after a non-arp sound, in the next HOLD sound? (the plug-in does so with Anomalies on - p2Plugin notes §45)
 - The 1 kHz leak (−96 dBFS with a note sounding): decide whether to model it
-- Envelopes, LFOs, mod matrix, glide
-- Drive curves and VCA
-- Velocity, pitch bend, mod wheel
 
 ## Plug-in
-- Import the instrument's sound dumps (.syx, saved by SynthEdit's Pulse 2 layout) as presets, to A/B patches against the instrument
-- Connect the remaining pages' parameters as each part is built (most are shown and saved only)
-- The value-text formats per parameter (times, rates, semitones), once their laws are measured
-- Oversampling selectable (1×/2×/4×, economy) for CPU (CT 2026-10-17); fixed at 4× now
-- Press/drag/release in SynthLib's tSynthLibPanel, replacing p2Draw's click-gap guess
-- Amp envelope into the engine from the measured laws (findings: decay/release exponential, attack (t/T)^2.5, the time tables, sustain curve)
-- Filter-envelope session: the same captures through the cutoff (self-oscillation tracks it), plus loop and trigger modes
-- Velocity
-- Keyboard tracking of the cutoff
-- An Anomalies on/off parameter switching every entry of design §3b
-- An editor panel
+- Link: send the program change on all 16 channels, so the P number follows whatever the Channel setting (only the Pulse 2 listens on its USB port) - offered to CT 2026-10-20, undecided
+- Value text in real units (times, rates, semitones) where the laws are measured; the panel shows raw values now, as the instrument does
 
 ## DO NOT RE-TRY
-- Drive: TUBE's H3 and FUZZ's even harmonics (needs captures at other frequencies: the curve has memory)
-- Measure osc 3's LEVEL2 / VCF / DRIVE depths and FB
-- Rotary dial drag (the siblings have it): SynthLib panel view must report uncaptured drag positions; then Controls > Rotary
-- Recapture P011 with LFO 1 at a fixed phase (it runs FREE, 24 s period) to settle its sustain difference
-- Drive, again: sines 50 Hz-5 kHz (and a two-tone) through EXT with the filter open, at stepped levels, for the curves' memory
-- Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127
-- Osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
-- FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?
-- Arp Pattern (0-14): what it selects
+- Four one-pole stages with LP24 at the end (per-stage poles): worse than the free-mix fit, implausible stage ratios, no HP notch (findings, first linear filter fit)
+- Fitting an engine constant to one take of a patch with detuned oscillators: their slow beat moves a band by up to 10 dB take to take (P006's LEVEL2 depth of 3, reverted)
+- Drive structures already rejected against the level sweep - p2Drive notes §4

@@ -3,10 +3,11 @@
 The arpeggiator, from the values the instrument's panel names, the manual's description of the modes, and timing
 measured on the instrument (findings, "arpeggiator").
 
-## 1. Tables
-Clock values are steps in ticks at 96 to a quarter note: 384 (1/1), 288, 256, 192, 144, 128, 96 (1/4), 72, 64,
-48, 36, 32, 24 (1/16), 18, 16, 12, 9, 8, 6, 4 (1/96). Step Duration is the note's length in 32nds of the step:
-4, 6, 8, 12, 16, 24, 32 (100%), 48 ... 512 (1600%), and a step's Time (25/50/75/100%) multiplies it.
+## 1. Clock and Step Duration
+Clock values are the note lengths the panel names (1/1, 3/4, 2/3 ... 1/96), as steps in ticks at 96 to a quarter
+note: 384 (1/1), 288, 256, 192, 144, 128, 96 (1/4), 72, 64, 48, 36, 32, 24 (1/16), 18, 16, 12, 9, 8, 6, 4 (1/96).
+Step Duration is the percentage the panel shows, as the note's length in 32nds of the step: 4 (12.5%), 6, 8, 12,
+16, 24, 32 (100%), 48 ... 512 (1600%), and a step's Time (25/50/75/100%) multiplies it.
 
 ## 2. A step's byte
 Event in bits 0-3 (OFF, SOFT, NORM, HARD, EVEN, ODD, OCT+, 1ST, RESET), Time in bits 4-5, Glide in bit 6. The
@@ -23,7 +24,7 @@ ON: the held keys are the sequence, and it stops when they are all up. HOLD: the
 released, and the next key after that starts a new one.
 
 ## 5. Events
-OFF plays nothing; SOFT −32 and HARD +64 on the velocity (127 at most); EVEN and ODD play on alternate passes of the
+OFF plays nothing; SOFT −32 and HARD +64 on the velocity (127 at most - the plug-in's choice, not yet measured); EVEN and ODD play on alternate passes of the
 pattern only; OCT+ an octave up; 1ST the first key played, at its own velocity; RESET restarts the sequence and
 plays its first note. Every step uses up its place in the sequence, even one that plays nothing (measured: with step 2 OFF over
 48 52 55 the passes are 48·55·48, 52·48·52, 55·52·55). The

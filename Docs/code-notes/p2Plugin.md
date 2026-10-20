@@ -351,8 +351,9 @@ The engine notices Arp Active change at the next note or audio block and hands t
   the keys still down - it is told of every key even while off, so it starts with them.
 - **To OFF:** the arp ends what it is playing; keys still down stay silent until played again.
 - **To ON:** a chord HOLD kept is dropped; only keys down play.
-- **From OFF to HOLD:** with Anomalies on, a chord an earlier HOLD sound kept starts again (the plug-in's choice, not yet checked on the instrument)
-  when going from a HOLD sound through a non-arp sound to another HOLD sound; off, it is dropped.
+- **From OFF to HOLD:** with Anomalies on, a chord an earlier HOLD sound kept starts again (going from a HOLD
+  sound through a non-arp sound to another HOLD sound); off, it is dropped. The plug-in's choice, not yet checked
+  on the instrument.
 - **HOLD to HOLD** (one HOLD sound to another): nothing changes, the kept chord goes on in the new sound.
 
 A reset (the host stopping the plug-in) forgets the arp's keys and every note.

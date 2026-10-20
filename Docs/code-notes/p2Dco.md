@@ -10,8 +10,8 @@ from the instrument (design §2.1).
 
 ## 3. The period law
 `(base − slope·frac/256) >> (octave + 1)`. The period, not the frequency, is interpolated between semitones,
-which is design §2.1's 0.7 cent. Integer arithmetic throughout, so the reproduction lands
-on the same whole-tick periods.
+which is design §2.1's 0.7 cent. Integer arithmetic throughout, so the reproduction lands on whole-tick periods,
+which is what the captured pitches agree with.
 
 ## 4. The pulse width
 design §2.2. The result is in ticks before the main edge.

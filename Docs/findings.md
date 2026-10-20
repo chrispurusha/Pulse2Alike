@@ -606,7 +606,7 @@ Keytrack OFF, at several notes (the instrument was off MIDI when this was done).
 - **Modes** (a chord 48 52 55, Range 2): UP 48 52 55 60 64 67 and again; DOWN the reverse; ALT up and back down
   without repeating the ends; #UP/#DWN as UP/DOWN here (played in pitch order).
 - **Clock and Step Duration** from the values the panel names (p2Arp notes §1); the step bytes' layout from the
-  library (notes §2); SOFT and HARD's velocity offsets (-32, +64) are the plug-in's choice, not yet measured (notes §5).
+  library (notes §2). SOFT and HARD's velocity offsets (-32, +64) are the plug-in's choice, not yet measured (notes §5).
 - **Trap:** the duration and mode takes ran with the step pattern of the sound sent before (P011, whose steps are not
   the default), which made Step Duration and #ALT look wrong. A take must set the steps it assumes.
 
