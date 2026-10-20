@@ -343,3 +343,16 @@ so it all happens before the VCA.
 Triangle test within ~2 dB (2nd) and ~3 dB (3rd); P006's osc 1 alone - CT heard the hardware "PWM-like" - now has
 its 2nd harmonic within 2 dB (it was 50 dB short). Open: P006's 3rd harmonic (-12 dB with osc 3 on LEVEL2, +15 on
 MIX), set by the filter there rather than by distortion.
+
+## 45. Arp Active changing, by hand or by a program change
+The engine notices Arp Active change at the next note or audio block and hands the voice over:
+
+- **From OFF to ON or HOLD:** every note the keys were playing is released (the pedal's too), and the arp takes
+  the keys still down - it is told of every key even while off, so it starts with them.
+- **To OFF:** the arp ends what it is playing; keys still down stay silent until played again.
+- **To ON:** a chord HOLD kept is dropped; only keys down play.
+- **From OFF to HOLD:** with Anomalies on, a chord an earlier HOLD sound kept starts again (the plug-in's choice, not yet checked on the instrument)
+  when going from a HOLD sound through a non-arp sound to another HOLD sound; off, it is dropped.
+- **HOLD to HOLD** (one HOLD sound to another): nothing changes, the kept chord goes on in the new sound.
+
+A reset (the host stopping the plug-in) forgets the arp's keys and every note.

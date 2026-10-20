@@ -57,8 +57,7 @@ enum {
 
 void p2_arp_reset(tP2Arp * a) {
     memset(a, 0, sizeof(*a));
-    a->sounding = -1;
-    a->random   = 0x6C8E9CF5u;
+    a->random = 0x6C8E9CF5u;
 }
 
 static uint32_t next_random(tP2Arp * a) {
@@ -135,20 +134,55 @@ static int next_index(const tP2Arp * a, const tP2ArpSettings * s, int count) {
     return (a->index + 1) % count;
 }
 
-static void end_sounding(tP2Arp * a, tP2ArpNote emit, void * user) {
-    if (a->sounding >= 0) {
-        emit(user, a->sounding, 0, false, false);
-        a->sounding = -1;
+static void end_pending(tP2Arp * a, int i, tP2ArpNote emit, void * user) {
+    uint8_t note = a->pending[i];
+
+    memmove(&a->pending[i], &a->pending[i + 1], (size_t)(a->pendingCount - i - 1));
+    memmove(&a->pendingOff[i], &a->pendingOff[i + 1], sizeof(double) * (size_t)(a->pendingCount - i - 1));
+    a->pendingCount--;
+    emit(user, note, 0, false, false);
+}
+
+// notes §10: every note whose length is up by `at`
+static void end_due(tP2Arp * a, double at, tP2ArpNote emit, void * user) {
+    for (int i = 0; i < a->pendingCount;) {
+        if (a->pendingOff[i] <= at) {
+            end_pending(a, i, emit, user);
+        } else {
+            i++;
+        }
+    }
+}
+
+static void end_all(tP2Arp * a, tP2ArpNote emit, void * user) {
+    while (a->pendingCount > 0) {
+        end_pending(a, 0, emit, user);
     }
 }
 
 void p2_arp_stop(tP2Arp * a, tP2ArpNote emit, void * user) {
-    end_sounding(a, emit, user);
+    end_all(a, emit, user);
     a->keyCount = a->keysDown = 0;
     a->running  = false;
 }
 
+// notes §11
+void p2_arp_forget_released(tP2Arp * a) {
+    int kept = 0;
+
+    for (int i = 0; i < a->keyCount; i++) {
+        if (a->down[a->key[i]]) {
+            a->key[kept]           = a->key[i];
+            a->keyVelocity[kept++] = a->keyVelocity[i];
+        }
+    }
+
+    a->keyCount = kept;
+}
+
 void p2_arp_key(tP2Arp * a, const tP2ArpSettings * s, int note, int velocity, bool down) {
+    a->down[note & 127] = down;
+
     if (down) {
         // notes §4: HOLD keeps the chord once the keys are up; a key after that starts a new one
         if ((s->active == eP2ArpHold) && (a->keysDown == 0)) {
@@ -162,7 +196,7 @@ void p2_arp_key(tP2Arp * a, const tP2ArpSettings * s, int note, int velocity, bo
         }
         return;
     }
-    a->keysDown -= (a->keysDown > 0) ? 1 : 0;
+    a->keysDown        -= (a->keysDown > 0) ? 1 : 0;
 
     if (s->active == eP2ArpHold) {
         return;
@@ -220,25 +254,27 @@ static void play_step(tP2Arp * a, const tP2ArpSettings * s, double at, double cl
     if ((s->accent >= 0.0) && (s->accent > velocity)) {       // notes §6
         velocity = (int)s->accent;
     }
-    velocity      += offset;
-    velocity       = (velocity > 127) ? 127 : velocity;
+    velocity                        += offset;
+    velocity                         = (velocity > 127) ? 127 : velocity;
 
     if ((velocity <= 0) || (note > 127)) {
         return;
     }
 
-    if (a->sounding == note) {
-        end_sounding(a, emit, user);                           // the same key again: its old end must not cut it
+    for (int i = 0; i < a->pendingCount; i++) {
+        if (a->pending[i] == note) {
+            end_pending(a, i, emit, user);                     // the same key again: its old end must not cut it
+            break;
+        }
     }
-    int previous = a->sounding;
 
+    if (a->pendingCount == P2_ARP_PENDING) {
+        end_pending(a, 0, emit, user);
+    }
     emit(user, note, velocity, true, GLIDE(b) != 0);
-
-    if ((previous >= 0) && (a->soundingOff <= at)) {
-        emit(user, previous, 0, false, false);
-    }
-    a->sounding    = note;
-    a->soundingOff = at + (clockTicks * kDurationOf32[s->duration] / 32.0 * (TIME(b) + 1) / 4.0);
+    end_due(a, at, emit, user);                                // after the new note, so a step's join is legato
+    a->pending[a->pendingCount]      = (uint8_t)note;
+    a->pendingOff[a->pendingCount++] = at + (clockTicks * kDurationOf32[s->duration] / 32.0 * (TIME(b) + 1) / 4.0);
 }
 
 // notes §7: following a host, the step grid is the host's: the first step on or after `now` (Delay moving the grid),
@@ -256,7 +292,7 @@ void p2_arp_run(tP2Arp * a, const tP2ArpSettings * s, double now, bool synced, t
 
     if ((a->keyCount == 0) || (s->active == eP2ArpOff)) {
         if (a->running) {
-            end_sounding(a, emit, user);
+            end_all(a, emit, user);
             a->running = false;
         }
         return;
@@ -275,10 +311,7 @@ void p2_arp_run(tP2Arp * a, const tP2ArpSettings * s, double now, bool synced, t
     } else if (synced && (fabs(now - a->nextStep) > (4.0 * step))) {
         align_to_grid(a, s, now, step);            // the host jumped (a loop, a locate)
     }
-
-    if ((a->sounding >= 0) && (now >= a->soundingOff)) {
-        end_sounding(a, emit, user);
-    }
+    end_due(a, now, emit, user);
 
     while (now >= a->nextStep) {
         double at   = a->nextStep;

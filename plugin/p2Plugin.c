@@ -183,6 +183,7 @@ typedef struct {
     tP2Drive    drive;
     tP2Arp      arp;                 // notes §32
     double      arpTicks;            // its own clock, when no host is playing
+    int         arpActiveSeen;       // notes §45: Arp Active as the engine last followed it
     bool        arpGlide;            // the arp step now starting glides
     double      source[25];          // the mod sources at the last control tick (the arp\'s accent)
     double      driveOut;            // notes §25: the last drive output, which osc 3\'s FB shape feeds back
@@ -781,7 +782,7 @@ static void p2_prepare(void * inst, const tSynthLibSetup * setup) {
 static void p2_reset(void * inst) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
-    p->noteCount = 0;
+    p->noteCount     = 0;
 
     for (int v = 0; v < PARA_VOICES_MAX; v++) {
         p->voice[v] = (tP2Voice){
@@ -791,8 +792,11 @@ static void p2_reset(void * inst) {
 
     p2_env_reset(&p->ampEnv);
     p2_env_reset(&p->filterEnv);
-    p->vca       = p->vcaTarget = 0.0;
-    p->cutoffNow = p->cutoffTarget = p->cutoff;
+    p2_arp_reset(&p->arp);
+    p->arpActiveSeen = plain_int(p, kP2ParamArpActive);
+    memset(p->sustained, 0, sizeof(p->sustained));
+    p->vca           = p->vcaTarget = 0.0;
+    p->cutoffNow     = p->cutoffTarget = p->cutoff;
     p2_filter_reset(&p->filter);
     memset(p->history, 0, sizeof(p->history));
 }
@@ -922,20 +926,42 @@ static void arp_note(void * user, int note, int velocity, bool on, bool glide) {
     }
 }
 
+// notes §45: Arp Active changed (by hand or by a program change) - the voice handed between the keys and the arp
+static void arp_follow_active(tP2Plugin * p) {
+    int active = plain_int(p, kP2ParamArpActive);
+    int was    = p->arpActiveSeen;
+
+    if (active == was) {
+        return;
+    }
+    p->arpActiveSeen = active;
+
+    if (was == eP2ArpOff) {
+        while (p->noteCount > 0) {
+            release_note(p, p->notes[p->noteCount - 1]);
+        }
+        memset(p->sustained, 0, sizeof(p->sustained));
+    }
+
+    if ((active == eP2ArpOn) || ((active == eP2ArpHold) && (was == eP2ArpOff) && !anomalies_on(p))) {
+        p2_arp_forget_released(&p->arp);
+    }
+}
+
 static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    tP2Plugin * p = (tP2Plugin *)inst;
+    tP2Plugin *    p = (tP2Plugin *)inst;
+    tP2ArpSettings s;
 
     (void)channel;
     (void)sampleOffset;
 
-    if (arp_on(p)) {
-        tP2ArpSettings s;
+    arp_follow_active(p);
+    arp_settings(p, &s);
+    p2_arp_key(&p->arp, &s, note, (int)lround(velocity * 127.0f), true);   // notes §45: the arp knows every key
 
-        arp_settings(p, &s);
-        p2_arp_key(&p->arp, &s, note, (int)lround(velocity * 127.0f), true);
-        return;
+    if (!arp_on(p)) {
+        play_note_on(p, note, velocity);
     }
-    play_note_on(p, note, velocity);
 }
 
 static void play_note_off(tP2Plugin * p, uint8_t note) {
@@ -948,21 +974,21 @@ static void play_note_off(tP2Plugin * p, uint8_t note) {
 }
 
 static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    tP2Plugin * p = (tP2Plugin *)inst;
+    tP2Plugin *    p = (tP2Plugin *)inst;
 
     (void)channel;
     (void)sampleOffset;
 
     p->releaseVelocity = velocity;
+    arp_follow_active(p);
+    tP2ArpSettings s;
 
-    if (arp_on(p) || p->arp.running) {
-        tP2ArpSettings s;
+    arp_settings(p, &s);
+    p2_arp_key(&p->arp, &s, note, 0, false);
 
-        arp_settings(p, &s);
-        p2_arp_key(&p->arp, &s, note, 0, false);
-        return;
+    if (!arp_on(p)) {
+        play_note_off(p, note);
     }
-    play_note_off(p, note);
 }
 
 static void release_sustained(tP2Plugin * p) {
@@ -1041,6 +1067,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     double         bpm       = hostClock ? t->tempo : (46.0 + (2.0 * plain(p, kP2ParamArpTempo)));   // notes §32
     double         tickStep  = bpm / 60.0 * P2_ARP_TICKS_PER_QUARTER / p->sampleRate;
 
+    arp_follow_active(p);
     arp_settings(p, &arp);
 
     if (hostClock) {

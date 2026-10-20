@@ -47,3 +47,14 @@ manual's 66% triplet feel). At the ends one step of the pair has no length.
 On the instrument #ALT goes up through the keys once and then swings between the top two for good (measured, with
 the default steps: 48 52 55 60 64 67 64 67 64 67 ...). With Anomalies on the plug-in does the same; off, #ALT is
 ALT in the order played.
+
+## 10. Notes that outlast their step
+A step's length (Step Duration × its Time) can run past the next step, up to 16 steps at 1600%, and Swing makes
+the second step of a pair shorter than the first, so even 100% overlaps there. Every note playing is kept with its
+own end until it ends; the next step's note starts before a due note ends, so the join is legato for glide. (Only
+one note used to be kept: a note still sounding when the next began was forgotten, never ended, and hung in the
+voice's key stack after the arp stopped - into the next sound.)
+
+## 11. Keys held and keys kept
+The arp knows every key, whether it is on or not, and which of them are physically down. Turning it ON keeps only
+the keys that are down; a chord HOLD kept after its keys were let go is dropped.

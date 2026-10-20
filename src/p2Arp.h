@@ -25,6 +25,7 @@
 #define P2_ARP_NOTES                (32)
 #define P2_ARP_STEPS                (16)
 #define P2_ARP_TICKS_PER_QUARTER    (96.0)
+#define P2_ARP_PENDING              (32)    // notes still sounding: a step can outlast 16 more (notes §10)
 
 typedef enum {
     eP2ArpOff = 0,
@@ -54,13 +55,15 @@ typedef struct {
     uint8_t  keyVelocity[P2_ARP_NOTES];
     int      keyCount;
     int      keysDown;
+    bool     down[128];                  // which keys are physically held (notes §11)
     bool     running;
-    double   nextStep;                 // in ticks, on the caller's clock
-    uint32_t stepCount;                // since the start: which half of a swing pair, and the pattern step
-    uint32_t cycle;                    // pattern passes, for EVEN and ODD
-    int      index;                    // in the note sequence
-    int      sounding;                 // the note playing, -1 none
-    double   soundingOff;              // when it ends, in ticks
+    double   nextStep;                   // in ticks, on the caller's clock
+    uint32_t stepCount;                  // since the start: which half of a swing pair, and the pattern step
+    uint32_t cycle;                      // pattern passes, for EVEN and ODD
+    int      index;                      // in the note sequence
+    uint8_t  pending[P2_ARP_PENDING];    // the notes playing, oldest first (notes §10)
+    double   pendingOff[P2_ARP_PENDING]; // when each ends, in ticks
+    int      pendingCount;
     uint32_t random;
 } tP2Arp;
 
@@ -70,5 +73,6 @@ void p2_arp_key(tP2Arp * a, const tP2ArpSettings * s, int note, int velocity, bo
 // the caller's clock (a host's beats) rather than starting from the first key.
 void p2_arp_run(tP2Arp * a, const tP2ArpSettings * s, double now, bool synced, tP2ArpNote emit, void * user);
 void p2_arp_stop(tP2Arp * a, tP2ArpNote emit, void * user);   // ends what is sounding and forgets the keys
+void p2_arp_forget_released(tP2Arp * a);                      // drops the keys HOLD kept after they were let go
 
 #endif // __P2_ARP_H__

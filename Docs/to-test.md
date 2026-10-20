@@ -23,3 +23,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P004 with osc 1 down, C3/F3 alternating: osc 2 should step to each note about 0.2 s in, held or not; first note after loading without a thump
 - P006: the noise should now sit as on the instrument (the filter's leak no longer gets the LEVEL2 routing gain)
 - P006 osc 1 alone (osc 2, 3 down): the triangle should have the instrument's slightly pulse-like colour (per-oscillator asymmetry)
+- Arp sounds to other sounds by program change: no note carried over or stuck (long Step Duration and Swing especially); OFF→arp with keys held hands them to the arp; HOLD→OFF→HOLD resumes the kept chord only with Anomalies on
