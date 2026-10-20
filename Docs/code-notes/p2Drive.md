@@ -69,3 +69,40 @@ Two ways forward (todo, top):
    its dependence on the previous note; then fit the static curves as measured shapes (a table or spline per
    Drive, not a formula), FUZZ symmetric and TUBE asymmetric with its moving duty. Several hours, with the rig to
    itself for stretches.
+
+## 5. Quiet inputs: the ceilings fall with the input's level (2026-10-20, way 1 of §4)
+Against the level sweep (`tools/drive_level.py`, the model run on each NONE take beside the instrument's take), the
+static curves match above about -31 dB of input RMS and the instrument falls away below it: at Drive 16-127 FUZZ
+loses 1.3-1.6 dB more per dB of input, TUBE 1.7-1.8; Drive 0 is steeper. The instrument's quiet output is still
+clipped (FUZZ's 3rd harmonic -16 dB at osc level 16, as loud as at 40), so the loss is not a gain after the curve:
+the clipper's ceilings (and its bias) are lowered instead, by `trim - slope x (knee - level)` dB below the knee,
+with knee, slope and trim per Drive point (fitted, C model driven from scipy). Note 48: FUZZ within 0.25-0.3 dB rms
+at Drive 16-127, 0.9 at Drive 0; TUBE 0.4-1.7. The input's level is a meter on its power, 3 ms up and 60 ms down,
+which reads 3.15 dB over a steady triangle's RMS at notes 48, 72 and 84 alike (subtracted).
+Open: notes 72 and 84 lose less (2.6 dB rms with note 48's numbers) - the loss depends on pitch; the settling seen
+over long quiet notes (§4) is not modelled; the 7th and 9th harmonics are short at every level (the static shape).
+P003 (FUZZ 17, note 48) against its NONE: the instrument -0.5 dB, the plug-in +5.8 before, +2.2 now; FUZZ's added
+250 Hz-1 kHz now +6 dB as the instrument's +7. Its remaining darkness is mostly upstream: P003 on NONE is already
+about 10 dB darker in the plug-in than on the instrument above 250 Hz.
+
+## 6. The curve's knee, fitted to harmonics (2026-10-20)
+The clipper's tanh became `x / (1 + |x|^h)^(1/h)` (scaled by the ceiling): h near 1 is round, large h nearly square,
+and tanh sits about h = 2.5. `tools/drive_shape.py` fits it with the gain per Drive, the ceilings, bias, coupling and
+shelf to harmonics 1-15 of the level sweep (inputs above the §5 knee; notes 48, 72, 84) and the EXT IN sines (100 Hz
+to 3 kHz, -20 and -10 dBFS), with the C model in `tools/drive_model.c`; then §5's loss is refitted on the new shape
+over every level. Spectra decide, as in §4.
+FUZZ: one hardness for both sides (12.5) - a free pair went lopsided to copy the even harmonics the sweep's triangle
+brings in, and the sines show FUZZ makes none of its own. The ceilings and bias stay free: forced equal and zero, the
+coupling loop loses its operating point and the fit falls apart (17 dB rms). Harmonic rms over all takes 11.4 dB with
+the old shape, 4.3 with this one; on the sines at -20/-10 dBFS 2.6-4.9 dB against 4.7-10.6. Its one loss: at
+-30 dBFS input the small remaining asymmetry gives even harmonics about 15 dB above the instrument's. P003 against
+its NONE: level -1.1 dB (instrument -0.5); FUZZ adds +7.0 dB at 250 Hz-1 kHz (+7), +13.5 at 1-4 kHz (+24.5) and +9.5
+at 4-16 kHz (+11.5) - it added nothing above 1 kHz before.
+TUBE: each side its own knee (1.71 positive, 1.96 negative), every other constant shared: harmonic rms 10.9 -> 8.2 dB on
+the fitted takes, and better than the old shape on most of the sines (worse at Drive 0 with -30 dBFS in). Its bias
+sits near the fit's bound (0.495 of 0.5), so it stays **approximate**. A bias per Drive (the moving bias of §3) was
+tried and rejected: the five went to the bounds with alternating signs (+1 +1 -1 +1 -1), the clipper saturated by the
+bias and the coupling loop undoing it - 0.8 dB better on paper, nothing physical. §1's and §3's constants are
+superseded by these; their measurements stand.
+Fit files: `drive_shape.py <curve> shape`, then `loss`, then `sines` to compare with the old shape; the result is
+written to $TMPDIR/p2_drive_shape_<curve>.json and copied into the tables by hand (Drive 96 interpolated).

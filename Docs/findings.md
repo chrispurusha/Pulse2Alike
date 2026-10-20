@@ -756,3 +756,21 @@ detuned oscillators beat at different phases - the DCOs do run free.
 - **Mild distortion added** (CT heard P006's osc 1 "PWM-like" on the instrument): an asymmetry in each oscillator's
   level stage and a little odd saturation after the filter, before the VCA - p2Plugin notes §44 (`postsat/`,
   `p006_osc1/`). All 15 patches within 0.5 dB of before or closer.
+
+## 2026-10-20 - drive: quiet inputs (`drive_sweep/`, `drive_p003/`, `tools/drive_level.py`)
+
+- Below about -31 dB of input RMS both curves fall away faster than their input (FUZZ 1.3-1.6 dB per dB at Drive
+  16-127, TUBE 1.7-1.8, Drive 0 steeper), and stay clipped: FUZZ's 3rd harmonic is -16 dB at osc level 16 as at 40.
+  Modelled as the clipper's ceilings falling with a meter on the input's level (p2Drive notes §5); FUZZ within
+  0.3 dB at note 48. At notes 72 and 84 the loss is 2-3 dB smaller - pitch-dependent, open.
+- P003's sustain: +5.8 dB loud against its own NONE before, +2.2 now (instrument -0.5). With the curve on NONE, P003
+  is already about 10 dB darker above 250 Hz in the plug-in than on the instrument: its darkness is upstream of the
+  drive.
+
+- **The curves' shapes, fitted to harmonics** (`tools/drive_shape.py`, p2Drive notes §6): the clipper's knee became
+  fittable (round to square, per side). FUZZ, one knee for both sides, fitted to the sweep and the EXT IN sines:
+  harmonic rms 11.4 -> 4.3 dB; P003's FUZZ now adds +7.0 / +13.5 / +9.5 dB at 250 Hz-1 kHz / 1-4 kHz / 4-16 kHz over its
+  NONE (instrument +7 / +24.5 / +11.5; before +1 / -2 / -2). Even harmonics at -30 dBFS input stay ~15 dB high (the
+  remaining asymmetry); a forced-symmetric curve with no bias breaks the coupling loop (17 dB rms).
+- TUBE the same way, each side its own knee: 10.9 -> 8.2 dB; its bias sits at the fit's bound, so approximate. A bias
+  per Drive went to the bounds with alternating signs - rejected.

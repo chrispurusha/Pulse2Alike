@@ -15,10 +15,12 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take
 
 ## Drive
-- Way 1 (pragmatic, P003): a level-dependent gain on the static FUZZ fit, from the level sweep - p2Drive notes §4
 - Way 2 (thorough): long repeated quiet-level captures for the settling; FUZZ and TUBE as measured curves per Drive; sines 50 Hz-5 kHz and a two-tone through EXT, filter open, at stepped levels - p2Drive notes §4
-- Fit the multi-frequency EXT captures (`drive/drive_*_f{100,300,1000,3000}.wav`)
-- TUBE's H3 and FUZZ's even harmonics, and TUBE's bias moving with Drive
+- The quiet-input loss depends on pitch: notes 72/84 lose 2-3 dB less than note 48 (p2Drive notes §5)
+- P003 on NONE is ~10 dB darker above 250 Hz than the instrument: find what upstream (filter near cutoff 24?)
+- Fit the multi-frequency EXT captures (`192k/drive/drive_*_f{100,300,1000,3000}.wav`)
+- FUZZ at quiet inputs (-30 dBFS EXT): even harmonics ~15 dB above the instrument's - the fitted ceilings and bias are slightly lopsided (p2Drive notes §6)
+- TUBE: its fitted bias sits at the fit's bound and the shape is 8 dB rms off on harmonics - a better structure for its moving bias (a per-Drive bias went degenerate, notes §6)
 - Osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
 
 ## Rig
