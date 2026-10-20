@@ -43,6 +43,7 @@
 #include "p2Menu.h"
 #include "p2Params.h"
 #include "p2Patch.h"
+#include "p2Prefs.h"
 
 #define GL_SILENCE_DEPRECATION    1
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
@@ -104,6 +105,7 @@ static tRectangle           gTabs[MAX_PAGES];
 // the dial being dragged; its value runs unrounded while it moves
 static const tP2Control *   gGrabbed;
 static double               gGrabValue;
+static tRectangle           gGrabDial;          // the grabbed dial's square, for a rotary drag
 
 // notes §2: the open value menu - which control it sets, and what was chosen
 static const tP2Control *   gMenuFor;
@@ -867,18 +869,33 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
     }
     gGrabbed   = pc->control;
     gGrabValue = gValue[pc->control->paramId];
+    gGrabDial  = pc->dial;
     *grabbed   = true;
     return true;
 }
 
 bool p2_draw_drag_by(double dx, double dy, tP2Edit * edit) {
-    // up or right raises it, as the Controls menu chose (rotary needs the pointer, which a drag hides)
-    double move = (synthlib_dial_mode() == eDialModeHorizontal) ? dx : -dy;
+    // up or right raises it, as the Controls menu chose
+    double move = (p2_dial_mode() == eDialModeHorizontal) ? dx : -dy;
 
     if (gGrabbed == NULL) {
         return false;
     }
     gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / dial_drag_pixels_for_full_range((uint32_t)gGrabbed->steps))));
+    edit->paramId             = gGrabbed->paramId;
+    edit->normalized          = gGrabValue;
+    gValue[gGrabbed->paramId] = gGrabValue;
+    return true;
+}
+
+// notes §9: Rotary - the pointer stays, and the dial takes its angle
+bool p2_draw_drag_to(double x, double y, tP2Edit * edit) {
+    if ((gGrabbed == NULL) || (gGrabbed->steps <= 0)) {
+        return false;
+    }
+    uint32_t range = (uint32_t)gGrabbed->steps + 1;
+
+    gGrabValue                = (double)angle_to_value(calculate_mouse_angle((tCoord){x, y}, gGrabDial), range) / (double)gGrabbed->steps;
     edit->paramId             = gGrabbed->paramId;
     edit->normalized          = gGrabValue;
     gValue[gGrabbed->paramId] = gGrabValue;

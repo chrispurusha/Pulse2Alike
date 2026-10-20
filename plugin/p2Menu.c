@@ -30,6 +30,7 @@
 #include "p2Menu.h"
 #include "p2Params.h"
 #include "p2Patch.h"
+#include "p2Prefs.h"
 
 #define BANKS            (5)
 #define GROUPS           (10)    // of ten sounds, to a bank
@@ -150,28 +151,36 @@ static void open_file_menu(tCoord anchor) {
 
 // ---- Controls ---------------------------------------------------------------------------------------------
 
+static void action_drag_rotary(int index) {
+    (void)index;
+    p2_set_dial_mode(eDialModeRotary);
+}
+
 static void action_drag_vertical(int index) {
     (void)index;
-    synthlib_set_dial_mode(eDialModeVertical);
+    p2_set_dial_mode(eDialModeVertical);
 }
 
 static void action_drag_horizontal(int index) {
     (void)index;
-    synthlib_set_dial_mode(eDialModeHorizontal);
+    p2_set_dial_mode(eDialModeHorizontal);
 }
 
-// "* " marks the one in force, as SynthEdit's Controls menu does
+// "* " marks the one in force, as the sibling editors' Controls menus do
 static void open_controls_menu(tCoord anchor) {
-    static tMenuItem items[3];
-    bool             horizontal = synthlib_dial_mode() == eDialModeHorizontal;
+    static tMenuItem items[4];
+    tDialMode        mode = p2_dial_mode();
 
     items[0] = (tMenuItem){
-        horizontal ? "Drag Dials Vertically" : "* Drag Dials Vertically", ITEM, action_drag_vertical, 0, NULL, 0, 0.0, NULL
+        (mode == eDialModeRotary) ? "* Rotary" : "Rotary", ITEM, action_drag_rotary, 0, NULL, 0, 0.0, NULL
     };
     items[1] = (tMenuItem){
-        horizontal ? "* Drag Dials Horizontally" : "Drag Dials Horizontally", ITEM, action_drag_horizontal, 0, NULL, 0, 0.0, NULL
+        (mode == eDialModeVertical) ? "* Vertical" : "Vertical", ITEM, action_drag_vertical, 0, NULL, 0, 0.0, NULL
     };
-    items[2] = END_OF_MENU;
+    items[2] = (tMenuItem){
+        (mode == eDialModeHorizontal) ? "* Horizontal" : "Horizontal", ITEM, action_drag_horizontal, 0, NULL, 0, 0.0, NULL
+    };
+    items[3] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
 

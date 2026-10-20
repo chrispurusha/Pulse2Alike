@@ -69,6 +69,7 @@ bool p2_draw_menu_active(void);
 // nothing was set), or grabs a dial (*grabbed, and the pointer is then held while dragBy moves it).
 bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed);
 bool p2_draw_drag_by(double dx, double dy, tP2Edit * edit);
+bool p2_draw_drag_to(double x, double y, tP2Edit * edit);   // Rotary: the pointer's own position
 void p2_draw_release(double x, double y, tP2Edit * edit);   // a menu choice is taken here
 bool p2_draw_key(int glfwKey, unsigned int codepoint, bool isRepeat);
 void p2_draw_scroll(double dy);

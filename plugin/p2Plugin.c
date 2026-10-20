@@ -38,6 +38,8 @@
 #include "p2Hardware.h"
 #ifndef P2_NO_EDITOR
 #include "synthlibPanelView.h"
+#include "prefs.h"
+#include "p2Prefs.h"
 #endif
 
 // touch /tmp/pulse2alike-log, read /tmp/pulse2alike.log - see SynthLib's plugin/synthlibLog.h.
@@ -243,9 +245,10 @@ typedef struct {
     bool        hwDumpDue;
     double      hwLastDump;
     double      hwDumpNotBefore;
-    int         hwProgram;   // notes §41: the library number the instrument was last sent, 0 none
-    double      slewed;      // notes §40
-    double      hissLp[8];   // notes §38: the same, for the two hiss sources
+    int         hwProgram;      // notes §41: the library number the instrument was last sent, 0 none
+    double      hwChannelKnown; // notes §46: the channel as last read or saved, negative before the first
+    double      slewed;         // notes §40
+    double      hissLp[8];      // notes §38: the same, for the two hiss sources
 } tP2Plugin;
 
 static double plain(const tP2Plugin * p, uint32_t id) {
@@ -705,6 +708,10 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     free_running_phases(p);
     snprintf(p->soundName, sizeof(p->soundName), "INIT");
     p2_arp_reset(&p->arp);
+    p->hwChannelKnown      = -1.0;
+#ifndef P2_NO_EDITOR
+    p2_prefs_init();
+#endif
     p->filterEnv.timeScale = FILTER_ENV_TIME_SCALE;
     p->ampEnv.timeScale    = 1.0;
 
@@ -1544,6 +1551,7 @@ static void hardware_follow(tP2Plugin * p, void * user) {
         uint8_t change[5] = {(uint8_t)(0xB0 | channel), 32, (uint8_t)((number - 1) / 100), (uint8_t)(0xC0 | channel), (uint8_t)((number - 1) % 100)};
 
         result             = p2_hardware_send(change, sizeof(change));
+        synthlib_log_line("Link: P%03d as bank %d program %d on channel %d (result %d)", number, change[2], change[4], channel + 1, (int)result);
         p->hwProgram       = number;
         p->hwDumpDue       = true;
         p->hwDumpNotBefore = now_seconds() + HW_PROGRAM_SETTLE;
@@ -1577,6 +1585,8 @@ static void hardware_follow(tP2Plugin * p, void * user) {
     if (p->hwDumpDue) {
         if (((now_seconds() - p->hwLastDump) >= HW_DUMP_INTERVAL) && (now_seconds() >= p->hwDumpNotBefore)) {
             result        = (tP2HardwareResult)p2_send_to_hardware(user);
+            synthlib_log_line("Link: sound dump sent (result %d), sound from %s, file number %d, last program sent %d",
+                              (int)result, p->patchPath, number, p->hwProgram);
             p->hwDumpDue  = false;
             p->hwLastDump = now_seconds();
         }
@@ -1590,6 +1600,24 @@ static void hardware_follow(tP2Plugin * p, void * user) {
         synthlib_plugin_param_edited(user, kP2ParamHwLink, 0.0);
         p->hwValid = false;
         p2_draw_hardware_problem((int)result);
+    }
+}
+
+// notes §46: the instrument's channel is the rig's, not the project's - kept in the prefs, given to each instance
+static void hardware_channel_pref(tP2Plugin * p, void * user) {
+    double value = synthlib_plugin_param_value(user, kP2ParamHwChannel);
+
+    if (p->hwChannelKnown < 0.0) {
+        long channel = prefs_get_int(P2_PREF_HW_CHANNEL, 0);
+
+        if ((channel >= 1) && (channel <= 16) && (value != (channel - 1) / 15.0)) {
+            value = (channel - 1) / 15.0;
+            synthlib_plugin_param_edited(user, kP2ParamHwChannel, value);
+        }
+        p->hwChannelKnown = value;
+    } else if (value != p->hwChannelKnown) {
+        p->hwChannelKnown = value;
+        prefs_set_int(P2_PREF_HW_CHANNEL, lround(value * 15.0) + 1);
     }
 }
 
@@ -1607,6 +1635,7 @@ static void p2_panel_sync(void * user) {
         p->programSynced = number;
     }
     p2_draw_set_patch(p->patchPath);      // notes §24: this instance's, every sync
+    hardware_channel_pref(p, user);
     hardware_follow(p, user);
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
@@ -1629,6 +1658,19 @@ static bool p2_panel_press(void * user, double x, double y) {
         synthlib_plugin_param_edited(user, edit.paramId, edit.normalized);
     }
     return grabbed;
+}
+
+static bool p2_panel_keeps_pointer(void * user) {
+    (void)user;
+    return p2_dial_mode() == eDialModeRotary;
+}
+
+static void p2_panel_drag_to(void * user, double x, double y) {
+    tP2Edit edit;
+
+    if (p2_draw_drag_to(x, y, &edit)) {
+        synthlib_plugin_param_edited(user, edit.paramId, edit.normalized);
+    }
 }
 
 static void p2_panel_drag_by(void * user, double dx, double dy) {
@@ -1662,17 +1704,19 @@ static void p2_panel_scroll(void * user, double x, double y, double dy) {
 }
 
 static const tSynthLibPanel      gPanel = {
-    .canvasWidth = P2_CANVAS_W,
-    .init        = p2_panel_init,
-    .sync        = p2_panel_sync,
-    .frame       = p2_panel_frame,
-    .press       = p2_panel_press,
-    .dragBy      = p2_panel_drag_by,
-    .release     = p2_panel_release,
-    .scroll      = p2_panel_scroll,
-    .key         = p2_panel_key,
-    .pointer     = p2_draw_set_mouse,
-    .menuActive  = p2_draw_menu_active,
+    .canvasWidth  = P2_CANVAS_W,
+    .init         = p2_panel_init,
+    .sync         = p2_panel_sync,
+    .frame        = p2_panel_frame,
+    .press        = p2_panel_press,
+    .dragBy       = p2_panel_drag_by,
+    .keepsPointer = p2_panel_keeps_pointer,
+    .dragTo       = p2_panel_drag_to,
+    .release      = p2_panel_release,
+    .scroll       = p2_panel_scroll,
+    .key          = p2_panel_key,
+    .pointer      = p2_draw_set_mouse,
+    .menuActive   = p2_draw_menu_active,
 };
 
 static void * p2_create_view(const tSynthLibPluginDesc * desc, void * inst, double width, double height) {

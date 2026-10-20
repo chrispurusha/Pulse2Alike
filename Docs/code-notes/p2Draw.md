@@ -53,3 +53,10 @@ an edit changes only the bits it shows.
 ## 8. Link
 The Link HW button, left of Prev, shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
 plug-in's, through the host's `send`; the panel only reports a failure.
+
+## 9. Rotary drag
+Controls offers Rotary, Vertical and Horizontal, as the sibling editors do. Vertical and Horizontal hide the
+pointer and count its movement; Rotary keeps it visible and free, as the siblings' Rotary does, and the dial takes
+the pointer's angle about its centre (SynthLib's `calculate_mouse_angle()` / `angle_to_value()`, the 270 degree
+sweep the siblings use). The panel view asks at each grab which kind of drag it is (its `keepsPointer`, SynthLib
+synthlibPanelView notes §12).

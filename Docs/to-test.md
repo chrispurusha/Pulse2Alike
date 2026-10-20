@@ -12,7 +12,7 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - File menu in Live: Open, Load by Number, Save (confirm), Save As (type a name: needs the keyboard in Live's plug-in window), Init, Reload Library
 - Rename: click the name, type, Return; Escape cancels; then Save writes the new name (load it back to check)
 - Reopen a Live project: the name and file come back; Save still keeps the original dump's other bytes
-- Controls > Drag Dials Horizontally; Anomalies toggle
+- Anomalies toggle
 - Drive TUBE and FUZZ by ear against the instrument; osc 3 routings LEVEL2 / VCF / DRIVE and the FB shape (depths are guesses)
 - P004 at several notes against the plug-in (Keytrack OFF itself is confirmed)
 - Program change to the current program is ignored (host re-sends it)
@@ -24,3 +24,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P006: the noise should now sit as on the instrument (the filter's leak no longer gets the LEVEL2 routing gain)
 - P006 osc 1 alone (osc 2, 3 down): the triangle should have the instrument's slightly pulse-like colour (per-oscillator asymmetry)
 - Arp sounds to other sounds by program change: no note carried over or stuck (long Step Duration and Swing especially); OFF→arp with keys held hands them to the arp; HOLD→OFF→HOLD resumes the kept chord only with Anomalies on
+- Controls > Rotary / Vertical / Horizontal: each drags as named (Rotary follows the angle round the dial with the pointer hidden); the choice and the Pulse 2 channel survive closing Live (~/Library/Application Support/Pulse2Alike/prefs.txt)

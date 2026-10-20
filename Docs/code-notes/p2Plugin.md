@@ -356,3 +356,9 @@ The engine notices Arp Active change at the next note or audio block and hands t
 - **HOLD to HOLD** (one HOLD sound to another): nothing changes, the kept chord goes on in the new sound.
 
 A reset (the host stopping the plug-in) forgets the arp's keys and every note.
+
+## 46. The Pulse 2's MIDI channel is remembered
+The channel Link sends on belongs to the rig, not to a project, so it is kept in the plug-in's settings file
+(p2Prefs notes §1; key `pulse2Channel`, 1-16). Changing the Channel dial saves
+it; each instance takes it when its editor first opens, over whatever a project saved (Link only sends while the
+editor is open, so nothing goes out on the old channel first). Before anything is saved the default is still 1.
