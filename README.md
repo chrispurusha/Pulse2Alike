@@ -2,8 +2,7 @@
 
 A reproduction inspired by the Waldorf Pulse 2 as a VST3 and Audio Unit instrument.
 
-The Pulse 2's oscillators are DCOs. Their pitch, pulse-width and level laws are digital and are reproduced
-exactly. The analogue parts are modelled from captures of a real Pulse 2: the oscillator wave shapes, the
+The analogue parts are modelled from captures of a real Pulse 2: the oscillator wave shapes, the
 filter (LP24 / LP12 / BP12 / HP12), and the drive and VCA. Captures are taken through the instrument's
 external input and MIDI control.
 
