@@ -2,5 +2,5 @@
 # Builds and runs tools/filtercheck against src/p2Filter.c.
 set -e
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-clang -O2 -Wall -Wextra -I"$HERE/src" "$HERE/tools/filtercheck.c" "$HERE/src/p2Filter.c" -o "$HERE/tools/filtercheck"
+clang -O2 -Wall -Wextra -Werror -I"$HERE/src" "$HERE/tools/filtercheck.c" "$HERE/src/p2Filter.c" -o "$HERE/tools/filtercheck"
 "$HERE/tools/filtercheck"

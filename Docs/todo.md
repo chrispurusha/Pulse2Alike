@@ -3,6 +3,7 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- tools/do-filtercheck fails "LP24 c64 r96 bass loss at 40 Hz" (-13.67 dB, wants -9.1): the target is the compressed -30 dBFS take; the -45 dBFS retake (k 4.01) gives ~-14.0 - confirm from the captures and update it; the script also exits 0 on FAILED
 - P010: brighter on the plug-in (CT, listening)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43

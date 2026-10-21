@@ -175,6 +175,12 @@ AU_OBJC_SOURCES=(
 
 WARNFLAGS=(-Wall -Wextra)
 
+# Warnings are errors in Pulse2Alike's own sources, not in SynthLib's or the SDK's, which are not this
+# project's to fix. P2A_NO_WERROR=1 turns it off for a build that cannot wait.
+own_werror() {
+    [[ -z "$P2A_NO_WERROR" && "$1" == "$HERE/"* && "$1" != "$SL/"* ]] && print -- -Werror
+}
+
 # SYNTHLIB_PLUGIN_BUILD is SynthLib's "this is a plug-in, there is no GLFW" - G2_VST3_BUILD until the
 # plug-ins gained a second format. An ARRAY, so the version define keeps its own quotes.
 DEFS=(-DSYNTHLIB_PLUGIN_BUILD=1 -DP2A_VERSION_STRING="\"$P2A_VERSION\"" -DP2A_AU_VERSION=$AU_VERSION
@@ -207,19 +213,19 @@ COMMON_OBJECTS=()
 
 for src in "${SOURCES[@]}"; do
     obj="$OBJDIR/$(basename "${src%.*}").o"
-    clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
+    clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
     COMMON_OBJECTS+=("$obj")
 done
 
 for src in "${CXX_SOURCES[@]}"; do
     obj="$OBJDIR/$(basename "${src%.*}").oxx"
-    clang++ $ARCHS $MIN -O2 -std=gnu++17 "${WARNFLAGS[@]}" "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
+    clang++ $ARCHS $MIN -O2 -std=gnu++17 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
     COMMON_OBJECTS+=("$obj")
 done
 
 for src in "${OBJC_SOURCES[@]}"; do
     obj="$OBJDIR/$(basename "${src%.*}").om"
-    clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" "${DEFS[@]}" "${INCLUDES[@]}" \
+    clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
           -x objective-c -c "$src" -o "$obj"
     COMMON_OBJECTS+=("$obj")
 done
@@ -291,14 +297,14 @@ build_vst3() {
 
     for src in "${VST3_CXX_SOURCES[@]}"; do
         local obj="$OBJDIR/vst3_$(basename "${src%.*}").oxx"
-        clang++ $ARCHS $MIN -O2 -std=gnu++17 "${WARNFLAGS[@]}" "${DEFS[@]}" \
+        clang++ $ARCHS $MIN -O2 -std=gnu++17 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" \
                 "${INCLUDES[@]}" "${VST3_INCLUDES[@]}" -c "$src" -o "$obj"
         objects+=("$obj")
     done
 
     for src in "${VST3_OBJCXX_SOURCES[@]}"; do
         local obj="$OBJDIR/vst3_$(basename "${src%.*}").omm"
-        clang++ $ARCHS $MIN -O2 -std=gnu++17 -fobjc-arc "${WARNFLAGS[@]}" "${DEFS[@]}" \
+        clang++ $ARCHS $MIN -O2 -std=gnu++17 -fobjc-arc "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" \
                 "${INCLUDES[@]}" "${VST3_INCLUDES[@]}" -x objective-c++ -c "$src" -o "$obj"
         objects+=("$obj")
     done
@@ -340,14 +346,14 @@ build_au() {
 
     for src in "${AU_C_SOURCES[@]}"; do
         local obj="$OBJDIR/au_$(basename "${src%.*}").o"
-        clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" "${DEFS[@]}" "${INCLUDES[@]}" \
+        clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
               -c "$src" -o "$obj"
         objects+=("$obj")
     done
 
     for src in "${AU_OBJC_SOURCES[@]}"; do
         local obj="$OBJDIR/au_$(basename "${src%.*}").om"
-        clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" "${DEFS[@]}" "${INCLUDES[@]}" \
+        clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
               -DSYNTHLIB_AU_VIEW_CLASS=$AU_VIEW_CLASS -x objective-c -c "$src" -o "$obj"
         objects+=("$obj")
     done
