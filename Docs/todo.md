@@ -53,6 +53,7 @@ In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound be
 ## Plug-in
 - Link: send the program change on all 16 channels, so the P number follows whatever the Channel setting (only the Pulse 2 listens on its USB port) - offered to CT 2026-10-20, undecided
 - Value text in real units (times, rates, semitones) where the laws are measured; the panel shows raw values now, as the instrument does
+- SynthLib: maximise the C and reduce the C++ (CT 2026-10-21) - port src/fileBrowser.cpp, bankBrowser.cpp and prefs.cpp to C; the VST3 wrapper and views stay C++/Obj-C++ as the SDK requires
 
 ## DO NOT RE-TRY
 - Four one-pole stages with LP24 at the end (per-stage poles): worse than the free-mix fit, implausible stage ratios, no HP notch (findings, first linear filter fit)
