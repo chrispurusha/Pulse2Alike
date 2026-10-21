@@ -6,6 +6,10 @@ The analogue parts are modelled from captures of a real Pulse 2: the oscillator 
 filter (LP24 / LP12 / BP12 / HP12), and the drive and VCA. Captures are taken through the instrument's
 external input and MIDI control.
 
+## Working with LLMs
+
+Development started as a solo project. As the project has evolved, I've recently incorporated LLM-assisted development into the workflow, using it as a tool for research, coding, debugging, and experimentation.
+
 ## Relationship to the sibling projects
 
 One of a family that shares [SynthLib](https://github.com/chrispurusha/SynthLib) and its format-free
