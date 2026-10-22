@@ -15,12 +15,11 @@ Development started as a solo project. As the project has evolved, I've recently
 One of a family that shares [SynthLib](https://github.com/chrispurusha/SynthLib) and its format-free
 plug-in wrappers:
 
-- **G2-Edit**: editor for the Nord G2, and the G2 Alike plug-in. The capture and analysis tools used here
+- **G2Alike**: editor for the Nord G2, and the G2Alike plug-in, including an optional recreation of the sound engine. The capture and analysis tools used here
   live in its `tools/`.
 - **SynthEdit**: generic multi-synth editor
 - **EmuUtility**: E-mu EOS sampler utility
-- **GenBridge**, **MidiSyncTool**, **MidiSeqTool**: plug-ins on the same wrappers. This project started
-  from MidiSeqTool's skeleton.
+- **GenBridge**, **MidiSyncTool**, **MidiSeqTool**: plug-ins using the same SynthLib library.
 
 ## Building
 
