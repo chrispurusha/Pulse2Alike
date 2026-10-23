@@ -340,8 +340,15 @@ so it all happens before the VCA.
   to each oscillator's own level stage, x + 0.06 x^2 per oscillator, its DC coupled off at 20 Hz. On the mixed
   signal instead (the filter input) it fitted the triangle and P006 but made the oscillators intermodulate -
   P001's attack 4.5 dB dark - which the instrument does not do.
-- The 3rd harmonic grows with level and with the routing gain (-46 to -34 dB): a stage after the filter, ahead of
-  the VCA, h - 4 h^3 in the instrument's output units at Volume 40. At the filter input it went 12-37 dB wrong.
+- The 3rd harmonic grows with level and with the routing gain (-46 to -34 dB). It was modelled as a stage after the
+  filter, h - 4 h^3, which matched this test - and was wrong (2026-10-23): with the filter OPEN the instrument's
+  triangle keeps a triangle's own harmonics at every level 30-127 (3rd -20.9 to -18.9 dB, level rising 16 dB), while
+  the stage rounded it to a near-sine at 120-127 (3rd -37 to -47 dB, 3 dB of compression) - P006's osc 1, "very
+  different" (CT). So the 3rd harmonic appears only near the cutoff: the filter's stages saturating on their own
+  input, as an OTA ladder does, not a stage after it. The stage is removed; the near-cutoff 3rd harmonic is now
+  10-25 dB short until the filter's stages saturate - tried the same day and not kept, since it pulls the
+  self-oscillation flat (findings 2026-10-23); a refit of the filter's law with it is in the todo. The loop's saturation also rounds the open triangle
+  (3rd -21.9 at 120 against -20.1 without), to be refitted with it.
 Triangle test within ~2 dB (2nd) and ~3 dB (3rd); P006's osc 1 alone - CT heard the hardware "PWM-like" - now has
 its 2nd harmonic within 2 dB (it was 50 dB short). Open: P006's 3rd harmonic (-12 dB with osc 3 on LEVEL2, +15 on
 MIX), set by the filter there rather than by distortion.

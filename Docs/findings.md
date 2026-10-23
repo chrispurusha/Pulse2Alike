@@ -809,3 +809,60 @@ k x f0: the odd harmonics agree within about 1 dB on both, the even ones do not.
 - After the change: duty within 0.001 at every width and note; osc 3's evens gone, odds within 0.3 dB.
 - Still open: with the filter open, osc 1 is 1.1-1.4 dB and osc 3 3.3 dB louder in the engine at every note.
 
+## 2026-10-23 - P012's resonance is higher on the instrument: drift (`192k/p012_selfosc/`)
+
+CT: with P012's Filter Env Amount and Velocity at 0 and resonance full, the self-oscillation is higher on the
+instrument. Measured at C2-C7 (oscillators off, its LFO mods and glide off): the engine is 0.63 semitone low at
+the oscillation's floor, 0.57 at C4, 0.32 at C7; the keytrack itself agrees (34.7 against 34.5 semitones C4-C7).
+The law's own reference points today (note 60, keytrack 64, LP24, resonance 127):
+
+| cutoff | 10-17 | today | today - law |
+|---|---|---|---|
+| 0 | 24.0 Hz | 24.8 Hz | +0.61 |
+| 40 | 241.9 | 246.9 | +0.33 |
+| 64 | 972 | 985.9 | +0.25 |
+| 88 | 3895 | 3925 | +0.12 |
+
+So the instrument's filter has moved since 10-17 by the same amounts P012 shows, most at the bottom; the law still
+matches the 10-17 take. Not changed. To settle which state is the calibrated one: run the instrument's TUNE FILTER,
+then measure these four points again.
+- A trap found on the way: `p2render` starts the filter from rest 0.1 s before the note, so at resonance 127 and a
+  low cutoff the engine's oscillation needs over a second to grow out of the noise floor; the instrument's had been
+  oscillating behind the closed VCA all along. With two seconds of lead-in (`p2render ... "60:2.0:1.4"`) the
+  engine starts at once and within 1-2 dB of the instrument's level.
+
+## 2026-10-23 - the post-filter distortion was a stand-in (`192k/iso/hw_006_*`, `postsat/`)
+
+P006's osc 1 (a triangle at level 120) alone, filter open, was "very different" (CT). The instrument's triangle
+keeps its own harmonics at every level, the engine's went to a near-sine above level 90:
+
+| osc 1 level | instrument dBFS / H3 / H5 | engine dBFS / H3 / H5 |
+|---|---|---|
+| 30 | -40.4 / -20.9 / -30.4 | -41.0 / -20.7 / -30.0 |
+| 60 | -32.0 / -20.4 / -29.8 | -33.1 / -22.2 / -31.4 |
+| 90 | -27.9 / -19.7 / -29.1 | -29.6 / -25.7 / -34.6 |
+| 120 | -25.1 / -19.0 / -28.6 | -27.6 / -37.3 / -42.0 |
+| 127 | -24.5 / -18.9 / -28.6 | -27.3 / -47.4 / -45.3 |
+
+Taking the engine's stages out one at a time: the cubic after the filter (p2Plugin notes §44) made almost all of it,
+the filter's loop saturation the rest (H3 -21.9 against -20.1 at level 120); the mix slew nothing. The cubic had been
+fitted to `postsat/` (a triangle through LP24 at cutoff 45, so a near-sine), which it still matches to 0.5 dB - but
+that 3rd harmonic must come from the filter's stages near the cutoff, since the open filter shows none. Cubic removed.
+
+## 2026-10-23 - saturation in the filter's stages: tried, not kept
+
+To put the near-cutoff 3rd harmonic where it belongs (the cubic after the filter was a stand-in, above), each of the
+four stages was given tanh(D·(x − s))/D on its own input. Scored against `postsat/` (near the cutoff) and P006's
+open triangle at levels 60/120/127, and run through `tools/filtercheck`:
+- **All four stages, D 16:** near the cutoff within 2.0 dB rms (from 12.4); the open filter untouched, as it should
+  be. But the self-oscillation fell about 5 semitones (241.9 -> 184.8 Hz at cutoff 40, 972 -> 741 at 64).
+- **The input stage only, D 8-32:** near the cutoff 2.2-6.5 dB rms; the self-oscillation still 2-3.6 semitones low
+  (972 -> 790-862 Hz).
+- **The loop's own saturation weaker (3.1 -> 1.0):** brings the open triangle at level 120-127 from 3.2-3.7 dB to
+  1.6-1.8 dB too dark, with no cost near the cutoff - but only alongside a stage change, since it sets the
+  oscillation's level.
+Any saturation in the loop slows the self-oscillation. On the instrument that is calibrated out: TUNE FILTER sets the
+cutoff against the self-oscillation itself, and the small-signal pole sits about 6 % above the self-oscillation
+frequency (2026-10-17, beta 1.063). So this wants the cutoff law, the resonance curve and the saturation refitted
+together, with the oscillation landing on the law - not a drive added on top. Filter left as it was.
+

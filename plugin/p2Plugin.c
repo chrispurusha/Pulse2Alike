@@ -85,7 +85,6 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define FEEDTHROUGH_COUPLING_HZ    (3)       // notes §43
 #define OSC_EVEN_COUPLING_HZ       (20.0)    // notes §44: the asymmetry's DC goes no further
 #define OSC_EVEN                   (0.06)    // notes §44: each oscillator level stage's asymmetry
-#define POST_FILTER_ODD            (4.0)     // notes §44: the stage after the filter, in the instrument's units
 #define HW_UNITS                   (0.888)   // the engine's pre-VCA level in the instrument's output units at Volume 40
 #define VCA_FEEDTHROUGH            (0.0)     // notes §43: the VCA's control leaking into its output
 #define VCA_COUPLING_HZ            (2)
@@ -1273,12 +1272,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             double filtered = p2_filter_process(&p->filter, p->slewed) - p->filterCoupled;
 
             p->filterCoupled         += mixHp * filtered;
-            // notes §44: mild odd saturation after the filter, ahead of the VCA
-            {
-                double h = filtered * HW_UNITS;
-
-                filtered = (h - (POST_FILTER_ODD * h * h * h)) / HW_UNITS;
-            }
+            // notes §44: no saturation after the filter - the instrument's open filter is clean at every level
 
             // notes §43: the level controls' leak, coupled on its own
             double leak     = p->levelNow[4] - p->feedCoupled;

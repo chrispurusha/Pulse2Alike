@@ -3,9 +3,10 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- P012 (CT 2026-10-23): with Filter Env Amount and Velocity at 0 and resonance full, the self-oscillation is higher on the instrument - the cutoff's keytrack (Filter Keytrack 95) or the cutoff law; measure the self-oscillation against the note
+- P012 (CT 2026-10-23): resonance tone higher on the instrument - measured: the instrument's filter has drifted up since 10-17 (+0.6 semitone at cutoff 0 to +0.1 at 88; findings 2026-10-23), the law matches 10-17. NEXT: CT runs TUNE FILTER on the instrument, then re-measure cutoff 0/40/64/88 at note 60
 - P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
-- P006 (CT): osc 1 alone, filter open, very different - a TRI with no modulation, so the triangle's shape (the instrument's is slightly pulse-like); osc 3 also different (SAW, synced to osc 2, routed to LEVEL2)
+- Filter: the near-cutoff 3rd harmonic (`postsat/`, -46 to -34 dB rising with level) is 10-25 dB short since the post-filter cubic went. Saturation in the stages fits it (D 16: 2 dB rms) but drops the self-oscillation 2-5 semitones (findings 2026-10-23): needs the cutoff law, the resonance curve and the saturation refitted together, the oscillation held on the law as TUNE FILTER holds it
+- P006 (CT): osc 3 also different (SAW synced to osc 2, routed to LEVEL2) - recorded in `192k/iso/` (as MIX), to analyse; osc 1's triangle was the post-filter cubic (findings 2026-10-23), check again by ear
 - P010 (CT): still brighter on the plug-in; osc 1 alone, filter open, different - PARA-4 with LFO 2 on PW1 (amount 94) and PW2, so the width modulation's depth and the paraphonic voices
 - P002 (CT): close; perhaps the start of the note (attack) - not certain
 - P003: the drive, as in Drive below
