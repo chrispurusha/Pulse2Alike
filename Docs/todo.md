@@ -3,10 +3,9 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- P001: osc 1 and osc 3, each alone, sound different from the instrument (CT, 2026-10-23: hard to describe) - compare them in isolation. (P004 now sounds very close, CT)
 - tools/do-filtercheck fails "LP24 c64 r96 bass loss at 40 Hz" (-13.67 dB, wants -9.1): the target is the compressed -30 dBFS take; the -45 dBFS retake (k 4.01) gives ~-14.0 - confirm from the captures and update it
-- Hiss ON once broke the engine live; OFF fixed it, ON again was fine. Not reproduced offline (3,663 renders, Hiss switched during notes, 2026-10-23); a fault guard now recovers and logs the state (p2Plugin notes §47) - if it happens again, send /tmp/pulse2alike.log (touch /tmp/pulse2alike-log first)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
-- The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
 - P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched; P001/P014 at note 48 do not brighten again after the filter envelope decays as the instrument does (~18 dB over half a second)
 - P005: sustain 6-7 dB dark
@@ -16,7 +15,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P013 -2 dB / P014 +2 dB in level
 - P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take-
 - Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
-- Help: instructions in the Help menu (only About today) and in the release's Read Me First; update the install instructions (README has only Building)
+- The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
 - Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
 - Transpose on the GLOBAL page: +-24 semitones, as the instrument's
 - Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
@@ -46,7 +45,7 @@ In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound be
 - The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
 
 ## Engine
-- Mod matrix: per-target amount scaling (measured on the cutoff only; the other targets are provisional)
+- Mod matrix: per-target depth at full scale - the amount law itself is measured (p2Plugin notes §51) and the full-scale depth on pitch (128 semitones per unit) and M-ACCU (1); the other targets' full-scale depths are provisional
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs
 - Capture to confirm: SNG2/RET2 restart from zero, RET3's exception, FNON/FOFF glide, LFO 2's delay (a wait before it starts?)
 - Osc 3's LEVEL2 / VCF / DRIVE depths and FB (depths are guesses beyond LEVEL2 at 8 Hz)
