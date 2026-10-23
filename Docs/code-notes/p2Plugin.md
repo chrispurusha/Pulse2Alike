@@ -285,9 +285,12 @@ is above 4 kHz, and it is what made the instrument sound brighter on dark patche
 strong between a note's harmonics as on them). Comparisons render the engine with Hiss on, so it cancels.
 
 ## 39. The oscillators' polarity
-The instrument's saw falls and jumps up, and its pulse at width 90 is high 74% of the cycle; the engine's were the
-other way up (CT, comparing recordings). The oscillators' audio is inverted in the mix; the noise, the FB loop and
-osc 3's control paths (LEVEL2, VCF, DRIVE - their directions measured) are not.
+The instrument's saw falls and jumps up (CT, comparing recordings; confirmed 2026-10-23 through the capture chain),
+and its pulse is high for the width law's fraction of the cycle - 25% at PW 90 (findings, "pulse width",
+2026-10-23; an earlier reading of 74% was the inverted one the findings warned of). The oscillators' audio is
+inverted in the mix, and the DCO hands the pulse over the other way up (p2Dco notes §6) so it comes out right;
+the noise, the FB loop and osc 3's control paths (LEVEL2, VCF, DRIVE - their directions measured) are not
+inverted.
 
 ## 40. The filter input's slew
 A saw through the open filter darkens with its level on the instrument: at level 127 its 20th harmonic is 1.9 dB and
@@ -381,7 +384,9 @@ Store writes the sound as it is now into a preset, through p2Patch's write-throu
 A new instance loads P001, whichever comes first of its first audio block and its editor's first frame (a host
 need not process before playback), exactly once (an atomic exchange). A restored project does not - its state
 carries its own sound - and an offline render plays what it is given. The project state is `P2S2` (2026-10-23):
-`P2S1` plus the preset number, so a reopened project shows its number; a `P2S1` state still loads, with none.
+`P2S1` plus the preset number, so a reopened project shows its number. A `P2S1` state (a project saved before
+the presets) takes its number from the sound's file name ("004 WITH DELAY.syx" is P004), or else from the slot its
+stored dump is addressed to, so Prev/Next carry on from where that project was (CT, 2026-10-23).
 Another process's store is noticed within a second: the editor's frame looks at the file's time once a second.
 
 ## 49. One instance owns the instrument

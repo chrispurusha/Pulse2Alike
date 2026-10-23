@@ -14,15 +14,20 @@ which is design §2.1's 0.7 cent. Integer arithmetic throughout, so the reproduc
 which is what the captured pitches agree with.
 
 ## 4. The pulse width
-design §2.2. The result is in ticks before the main edge.
+design §2.2: the pulse is high for ((W + 512)·W >> 15) / 65536 of the cycle, W = PW << 8 (at most `0x7E00`, 49.2%),
+the same at every pitch - measured to ±0.001 at PW 40-127 on C4 and F#4 (findings, "pulse width", 2026-10-23).
+Osc 3's SQR (`P2_WIDTH_SQUARE`) is an exact half cycle, measured to ±0.0003: its even harmonics sit 62-87 dB down
+on the instrument, which a 49.2% pulse could not do.
 
 ## 5. polyBLEP
 Two-sample polynomial band-limited step, the usual one. A stand-in until the captures say what the edges look
 like. The real edges are analogue and slower than a step.
 
 ## 6. The wave shapes
-Provisional: an ideal saw, triangle and pulse. The phase resets at the main edge, and the pulse is high for
-its last `pulseFraction` of the cycle. Polarity and shape come from captures (design §5.1).
+An ideal saw, triangle and pulse with polyBLEP edges. The phase resets at the main edge. The pulse leaves the DCO
+low for its last `pulseFraction` of the cycle, so that after the mix's inversion (p2Plugin notes §39) it is high
+for that fraction, as the instrument's is; the saw comes out of the mix falling and jumping up, as the
+instrument's does. Both checked against captures through the same chain (findings, "pulse width").
 
 ## 7. APW
 Measured (findings, "APW, corrected"): over a two-cycle period, the first cycle is a plain 50% square whatever the

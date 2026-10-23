@@ -3,17 +3,17 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- P001: osc 1 and osc 3, each alone, sound different from the instrument (CT, 2026-10-23: hard to describe) - compare them in isolation. (P004 now sounds very close, CT)
+- P012 (CT 2026-10-23): with Filter Env Amount and Velocity at 0 and resonance full, the self-oscillation is higher on the instrument - the cutoff's keytrack (Filter Keytrack 95) or the cutoff law; measure the self-oscillation against the note
+- P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
+- P006 (CT): osc 1 alone, filter open, very different - a TRI with no modulation, so the triangle's shape (the instrument's is slightly pulse-like); osc 3 also different (SAW, synced to osc 2, routed to LEVEL2)
+- P010 (CT): still brighter on the plug-in; osc 1 alone, filter open, different - PARA-4 with LFO 2 on PW1 (amount 94) and PW2, so the width modulation's depth and the paraphonic voices
+- P002 (CT): close; perhaps the start of the note (attack) - not certain
+- P003: the drive, as in Drive below
+- P001: osc 1 and osc 3 alone, filter open, are 1.1-1.4 dB and 3.3 dB louder in the engine at every note - measure the oscillators' level laws across their range (P001 sounds much better since the pulse fixes, CT)
 - tools/do-filtercheck fails "LP24 c64 r96 bass loss at 40 Hz" (-13.67 dB, wants -9.1): the target is the compressed -30 dBFS take; the -45 dBFS retake (k 4.01) gives ~-14.0 - confirm from the captures and update it
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
-- P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched; P001/P014 at note 48 do not brighten again after the filter envelope decays as the instrument does (~18 dB over half a second)
-- P005: sustain 6-7 dB dark
-- P010: brighter on the plug-in (CT, listening)
 - P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
-- P011: compare at a fixed phase - its slow LFO (sTRI, 24 s period) runs free on the instrument, so no take starts where the plug-in does
-- P013 -2 dB / P014 +2 dB in level
-- P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take-
 - Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
 - The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
 - Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
@@ -35,7 +35,7 @@ In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound be
 
 ## Oscillators
 - Osc 2 X3-PWM and X1-PWM are not built: list index 3 plays APW (osc 1's shape 3) and 4 a saw - p2Plugin notes §8
-- Model the pulse edges' slew (duty measures 0.002-0.009 wider than the law), the ramp's shape and reset spike against pitch
+- Model the ramp's shape and reset spike against pitch (the pulse's duty is settled - design §2.2)
 - How PWM from the mod matrix adds to the width word (the dial is dial << 8, confirmed)
 
 ## Filter

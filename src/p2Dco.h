@@ -27,6 +27,7 @@
 #define P2_PITCH_MIDI_ZERO       (36 * P2_PITCH_PER_SEMITONE)   // notes §1
 #define P2_PITCH_MAX             (196 * P2_PITCH_PER_SEMITONE)
 #define P2_WIDTH_MAX             (0x7E00)
+#define P2_WIDTH_SQUARE          (0x8000)   // notes §4: osc 3's SQR, an exact half cycle
 
 typedef enum {
     eP2ShapePulse = 0,
@@ -49,7 +50,7 @@ typedef struct {
 
 int32_t p2_pitch_from_midi_note(double note);
 uint32_t p2_dco_period_ticks(int32_t pitch);
-uint32_t p2_dco_pulse_ticks(uint32_t periodTicks, int32_t width);
+double p2_dco_pulse_fraction(int32_t width);   // notes §4: of the cycle the pulse is high
 
 void p2_dco_set(tP2Dco * dco, int32_t pitch, int32_t width, tP2Shape shape, double sampleRate);
 float p2_dco_next(tP2Dco * dco);

@@ -26,13 +26,15 @@ seen on its panel and display. A law in the code is there because it reproduces 
 
 Coded in `src/p2Dco.c`, checked by `tools/do-dcocheck`.
 
-**2.2 Pulse width.** The pulse is high for `w` ticks of each period:
+**2.2 Pulse width.** The pulse is high for
 
-`w = ((W + 512)·W >> 15) · (period >> 12) >> 4`, with `W = PW << 8` (at most `0x7E00`).
+`((W + 512)·W >> 15) / 65536` of each period, with `W = PW << 8` (at most `0x7E00`),
 
-That is quadratic in PW and tops out at 49 % of the period. **Checked against the instrument** across PW 16-127.
-The measured duty is 0.002-0.009 of a cycle wider than the law, probably the analogue edges' slew. PW 0 is
-silent.
+which is quadratic in PW and tops out at 49.2 % of the period, at every pitch. **Checked against the instrument**
+at PW 40-127 on C4 and F#4 (2026-10-23): it matches to ±0.001 of a cycle. (An earlier law took the period in
+4096-tick steps, which made the pulse narrower by a pitch-dependent amount, up to 0.026 of a cycle; that was the
+"0.002-0.009 wider than the law" first put down to the edges' slew.) PW 0 is silent. Osc 3's SQR is an exact 50 %
+square, not this pulse at its widest.
 
 **2.3 To measure (captures from the oscillator session, `osc/`):** amplitude against pitch, ramp curvature and
 the reset, how TRI is shaped, and what SYNC, FB, X1-PWM and X3-PWM do.

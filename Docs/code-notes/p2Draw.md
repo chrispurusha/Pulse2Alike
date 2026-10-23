@@ -24,7 +24,8 @@ the lower row instead of scrolling.
 
 ## 4. Presets: Prev, Next, the label
 `< Prev` and `Next >` step through P001-P500 and wrap at both ends, as the instrument's own buttons do; from a sound
-with no preset (a file, Init) Next goes to P001 and Prev to P500. `Load...` opens SynthLib's in-window file browser
+opened as a numbered file (`004 Name.syx`) they step from its number; from any other (Init, an unnumbered file)
+Next goes to P001 and Prev to P500. `Load...` opens SynthLib's in-window file browser
 for a single `.syx`, starting in the current file's folder or `iCloud Drive/Patches/Pulse2`. The browser is modal
 and drawn last; while it is open every press, release, hover and scroll is its own.
 

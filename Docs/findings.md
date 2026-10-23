@@ -793,3 +793,19 @@ pitch from a harmonic-sum search over 20 Hz-2.5 kHz, read 0.30-0.70 s into each 
 - The old law gave P004's osc 2 0.958 semitone per key; with the table, exactly 1 (engine read-off, every C2-C7).
 - The first two takes of the day were not what they were labelled (the edits accumulated, see above) - discarded.
 
+## 2026-10-23 - pulse width and osc 3's square (`192k/pw/`, `192k/isolate/hw_001_*`)
+
+P001's osc 1 and osc 3 sounded different alone (CT). Filter open, each alone, harmonics by a Hann DFT at exactly
+k x f0: the odd harmonics agree within about 1 dB on both, the even ones do not.
+- **Osc 3 SQR is an exact square:** evens 62-87 dB down on the instrument, ~29 dB in the engine, whose SQR was the
+  pulse at its widest (49.2%). Time above the midpoint, cycle by cycle: 0.5000 on the instrument at C3/C4/C5.
+- **The pulse width law, at every pitch:** osc 1 at PW 40, 64, 90, 110, 127 on C4 and F#4 is high for
+  ((W+512)·W >> 15)/65536 of the cycle to within 0.0003 (0.0513, 0.1289, 0.2527, 0.3760, 0.4922). The engine took
+  the period in 4096-tick steps, which narrows the pulse by an amount that depends on the note (F#4 at PW 127:
+  0.4662 against the instrument's 0.4923). That truncation was the "0.002-0.009 wider than the law" of design §2.2.
+- **The pulse's polarity:** the instrument is high for that fraction (25% at PW 90); the engine was high for the
+  rest. The same chain shows the saw jumping up on both, so the chain does not invert: the engine's pulse was the
+  wrong way up (p2Plugin notes §39 had it the other way, from the inverted reading noted on 2026-10-17).
+- After the change: duty within 0.001 at every width and note; osc 3's evens gone, odds within 0.3 dB.
+- Still open: with the filter open, osc 1 is 1.1-1.4 dB and osc 3 3.3 dB louder in the engine at every note.
+

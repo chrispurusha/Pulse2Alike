@@ -49,24 +49,27 @@ uint32_t p2_dco_period_ticks(int32_t pitch) {
 }
 
 // notes §4
-uint32_t p2_dco_pulse_ticks(uint32_t periodTicks, int32_t width) {
+// notes §4
+double p2_dco_pulse_fraction(int32_t width) {
     if (width <= 0) {
-        return 0;
+        return 0.0;
+    }
+
+    if (width >= P2_WIDTH_SQUARE) {
+        return 0.5;
     }
 
     if (width > P2_WIDTH_MAX) {
         width = P2_WIDTH_MAX;
     }
-    uint32_t shape = (uint32_t)(((width + 0x200) * width) >> 15);
-
-    return (shape * (periodTicks >> 12)) >> 4;
+    return (double)(((uint32_t)(width + 0x200) * (uint32_t)width) >> 15) / 65536.0;
 }
 
 void p2_dco_set(tP2Dco * dco, int32_t pitch, int32_t width, tP2Shape shape, double sampleRate) {
     uint32_t period = p2_dco_period_ticks(pitch);
 
     dco->increment     = (P2_DCO_CLOCK_HZ / (double)period) / sampleRate;
-    dco->pulseFraction = (double)p2_dco_pulse_ticks(period, width) / (double)period;
+    dco->pulseFraction = p2_dco_pulse_fraction(width);
     dco->shape         = shape;
 }
 
@@ -143,6 +146,7 @@ float p2_dco_next(tP2Dco * dco) {
             }
             out  = (t >= rise) ? 1.0 : -1.0;
             out += poly_blep(fall, dt) - poly_blep(t, dt);
+            out  = -out;            // notes §6: high for the width's fraction once the mix has inverted it
             break;
         }
     }

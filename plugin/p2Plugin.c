@@ -326,8 +326,8 @@ static void update_dcos(tP2Plugin * p) {
                dco_shape(plain_int(p, kP2ParamOsc1Shape)), rate);
     p2_dco_set(&p->dco[1], osc_pitch(p, note, kP2ParamOsc2Semitone, kP2ParamOsc2Detune), width_from_dial((int32_t)lround(fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc2Width) + p->mod[eModPulseWidth2])))),
                dco_shape(plain_int(p, kP2ParamOsc2Shape)), rate);
-    // osc 3: SQR is a pulse at the widest width; SAW and TRI as the others
-    p2_dco_set(&p->dco[2], osc_pitch(p, note, kP2ParamOsc3Semitone, kP2ParamOsc3Detune), P2_WIDTH_MAX,
+    // osc 3: SQR is an exact square (p2Dco notes §4); SAW and TRI as the others
+    p2_dco_set(&p->dco[2], osc_pitch(p, note, kP2ParamOsc3Semitone, kP2ParamOsc3Detune), P2_WIDTH_SQUARE,
                (shape3 == 0) ? eP2ShapePulse : dco_shape(shape3), rate);
     set_unison(p);
 }
@@ -840,6 +840,15 @@ static void p2_set_state(void * inst, const void * data, size_t len) {
     memcpy(p->baseDump, d + 4 + P2_SOUND_NAME_LENGTH + 2, P2_DUMP_LENGTH);
     memcpy(p->patchPath, d + 4 + P2_SOUND_NAME_LENGTH + 2 + P2_DUMP_LENGTH, 1024);
     p->patchPath[1023]                 = '\0';
+
+    // notes §48: a project from before the preset was saved - its file's number, or the slot its dump came from
+    if (!v2) {
+        int slot = (p->haveBase && (p->baseDump[5] != 0x7F)) ? (((p->baseDump[5] << 7) | p->baseDump[6]) + 1) : 0;
+
+        p->preset = (p2_patch_file_number(p->patchPath) != 0) ? p2_patch_file_number(p->patchPath) : slot;
+        p->preset = ((p->preset >= 1) && (p->preset <= P2_PATCH_SLOTS)) ? p->preset : 0;
+        atomic_store(&p->programShown, p->preset);
+    }
 }
 
 static void p2_prepare(void * inst, const tSynthLibSetup * setup) {

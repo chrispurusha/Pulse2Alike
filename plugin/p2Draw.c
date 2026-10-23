@@ -224,9 +224,10 @@ static void load_preset(int number) {
     }
 }
 
-// notes §4: Prev/Next step through P001-P500 and wrap, as the instrument's buttons do; from a file, Next is P001
+// notes §4: Prev/Next step through P001-P500 and wrap, as the instrument's buttons do; from a numbered file, from
+// its number; from any other, Next is P001
 static void step_patch(int direction) {
-    int from = gPreset;
+    int from = (gPreset != 0) ? gPreset : p2_patch_file_number(gPatchPath);
 
     if (from == 0) {
         from = (direction > 0) ? 0 : 1;
