@@ -96,6 +96,7 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC3_TO_LEVEL2             (1.0)     // per unit of osc 3 at full level - notes §25
 #define OSC3_COUPLING_HZ           (14.0)
 #define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
+#define FAULT_LEVEL                (16.0)    // notes §47: 24 dB over full scale, far past any sound
 
 // notes §13: the mod matrix's targets, in the instrument's list order
 enum {
@@ -249,6 +250,7 @@ typedef struct {
     double      hwChannelKnown; // notes §46: the channel as last read or saved, negative before the first
     double      slewed;         // notes §40
     double      hissLp[8];      // notes §38: the same, for the two hiss sources
+    uint32_t    faults;         // notes §47
 } tP2Plugin;
 
 static double plain(const tP2Plugin * p, uint32_t id) {
@@ -490,6 +492,29 @@ static void apply_oversample(tP2Plugin * p) {
     p2_filter_init(&p->filter, p->sampleRate * p->oversample);
     p2_drive_init(&p->drive, p->sampleRate * p->oversample);
     update_dcos(p);
+}
+
+// notes §47: an invalid or runaway output - the signal path's state logged, then put back to rest
+static void recover_signal_path(tP2Plugin * p, double acc) {
+    if (p->faults++ == 0) {
+        synthlib_log_line("FAULT: output %g; filter %g %g %g %g, slewed %g, mix %g, filterCoupled %g, drive %g/%g/%g, "
+                          "noise %g %g, hiss %g %g %g %g, dco %g %g %g, vca %g, cutoff %g, hiss %d, oversample %d",
+                          acc, p->filter.stage[0], p->filter.stage[1], p->filter.stage[2], p->filter.stage[3], p->slewed,
+                          p->mixCoupled, p->filterCoupled, p->driveOut, p->drive.coupled, p->drive.inPower,
+                          p->noiseLp[0], p->noiseLp[2], p->hissLp[0], p->hissLp[2], p->hissLp[4], p->hissLp[6],
+                          p->dco[0].increment, p->dco[1].increment, p->dco[2].increment, p->vca, p->cutoffNow,
+                          plain_int(p, kP2ParamHiss), p->oversample);
+    } else {
+        synthlib_log_line("FAULT again (%u so far)", p->faults);
+    }
+    p2_filter_reset(&p->filter);
+    p2_drive_init(&p->drive, p->sampleRate * p->oversample);
+    memset(p->history, 0, sizeof(p->history));
+    memset(p->noiseLp, 0, sizeof(p->noiseLp));
+    memset(p->hissLp, 0, sizeof(p->hissLp));
+    memset(p->oscEvenDc, 0, sizeof(p->oscEvenDc));
+    p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->driveOut = 0.0;
+    p->feedCoupled = p->vcaCoupled = p->noiseColour = 0.0;
 }
 
 static void update_filter(tP2Plugin * p) {
@@ -1219,6 +1244,11 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
         if (p->oversample == 1) {
             acc = p->history[(p->historyPos + DECIMATOR_TAPS - 1) % DECIMATOR_TAPS];
+        }
+
+        if (!isfinite(acc) || (fabs(OUTPUT_GAIN * acc) > FAULT_LEVEL)) {
+            recover_signal_path(p, acc);
+            acc = 0.0;
         }
         float  sample = (float)(OUTPUT_GAIN * acc * master);
 

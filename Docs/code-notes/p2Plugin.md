@@ -363,3 +363,12 @@ The channel Link sends on belongs to the rig, not to a project, so it is kept in
 (p2Prefs notes §1; key `pulse2Channel`, 1-16). Changing the Channel dial saves
 it; each instance takes it when its editor first opens, over whatever a project saved (Link only sends while the
 editor is open, so nothing goes out on the old channel first). Before anything is saved the default is still 1.
+
+## 47. The fault guard
+Hiss switched on once broke the engine live (2026-10-21): off brought it back, on again was fine. Nothing offline
+reproduces it - 3,663 renders (every library sound, 44.1/48/96 kHz, 1/2/4x, Hiss switched on and off during
+notes) gave no invalid or runaway sample - and no stage can make an invalid value from a finite input. So each
+output frame is checked: a value that is not finite, or more than 24 dB over full scale, is replaced with silence,
+and the signal path's state (filter, drive, couplings, noise and hiss band limits, decimator history) is put back
+to rest so the sound recovers by itself. The first fault per instance logs that state, to say which part went
+bad; later ones only count. Enable the log with `touch /tmp/pulse2alike-log`, read `/tmp/pulse2alike.log`.

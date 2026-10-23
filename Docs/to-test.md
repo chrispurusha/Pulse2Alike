@@ -25,3 +25,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P006 osc 1 alone (osc 2, 3 down): the triangle should have the instrument's slightly pulse-like colour (per-oscillator asymmetry)
 - Arp sounds to other sounds by program change: no note carried over or stuck (long Step Duration and Swing especially); OFF→arp with keys held hands them to the arp; HOLD→OFF→HOLD resumes the kept chord only with Anomalies on
 - Controls > Rotary / Vertical / Horizontal: each drags as named (Rotary follows the angle round the dial with the pointer hidden); the choice and the Pulse 2 channel survive closing Live (~/Library/Application Support/Pulse2Alike/prefs.txt)
+- Fault guard (p2Plugin notes §47): normal playing never logs FAULT in /tmp/pulse2alike.log; if Hiss (or anything) breaks the sound again, it should come back by itself within a block

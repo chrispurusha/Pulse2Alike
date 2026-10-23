@@ -3,8 +3,13 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- P004: osc 2 flat against the instrument going up from C4 (C4 about right, C5 flat). Osc 2 Keytrack is OFF (held at note 60, notes §31) and gets the key back through PITCH FLW -> M-ACCU (109) -> M-DELAY (78) -> OSC2 PITCH (127), so suspect that chain's scaling (notes §18, laws not yet captured); measure osc 2 alone on the instrument at C4/C5/C6
+- Help: instructions in the Help menu (only About today) and in the release's Read Me First; update the install instructions (README has only Building)
+- Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
+- Transpose on the GLOBAL page: +-24 semitones, as the instrument's
+- Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 - tools/do-filtercheck fails "LP24 c64 r96 bass loss at 40 Hz" (-13.67 dB, wants -9.1): the target is the compressed -30 dBFS take; the -45 dBFS retake (k 4.01) gives ~-14.0 - confirm from the captures and update it
-- Hiss ON once broke the engine live; OFF fixed it, ON again was fine. Offline renders with Hiss are clean at 44.1/48/96 kHz; no NaN guard anywhere in the engine. Ruled out by reading: the hiss path, the filter (tanh-bounded, clamped cutoff, G<1), the drive and p2_dco_set() - none makes a NaN from a finite input. Next: a guard that logs the first stage going non-finite and resets it (intermittent; seen 2026-10-21 morning, symptom and sound not recalled - parked until tokens allow)
+- Hiss ON once broke the engine live; OFF fixed it, ON again was fine. Not reproduced offline (3,663 renders, Hiss switched during notes, 2026-10-23); a fault guard now recovers and logs the state (p2Plugin notes §47) - if it happens again, send /tmp/pulse2alike.log (touch /tmp/pulse2alike-log first)
 - P010: brighter on the plug-in (CT, listening)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
