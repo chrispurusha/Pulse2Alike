@@ -38,18 +38,26 @@ void p2_patch_to_syx(const double normalized[kP2ParamCount], const uint8_t * bas
 bool p2_patch_save_file(const char * path, const uint8_t dump[P2_DUMP_LENGTH]);
 int p2_patch_param_byte(uint32_t paramId, double normalized);   // its sound byte (= its CC value), -1 if none
 
-// notes §2: every sound in the library folder, read once (main thread) so a program change only computes
+// notes §2, §6: the presets - P001..P500 in one file, read once into a cache that program changes read
 #define P2_PATCH_SLOTS    (500)            // P001..P500, as the display numbers them
 
-const char * p2_patch_library_folder(void);
-int p2_patch_library_number(const char * path);            // "NNN Name.syx" in the library folder, else 0
+const char * p2_patch_sounds_folder(void);                 // where single .syx files are looked for first
+const char * p2_presets_path(void);
+void p2_presets_make_folder(void);
 int p2_patch_file_number(const char * path);               // "NNN Name.syx" in any folder -> NNN, else 0
-void p2_patch_cache_load(void);
-void p2_patch_cache_reload(void);                          // main thread: rescan the folder
-void p2_patch_cache_store(int number, const uint8_t dump[P2_DUMP_LENGTH], const char * path);
-bool p2_patch_cached(int number, double normalized[kP2ParamCount], char name[P2_SOUND_NAME_LENGTH + 1]);
-const char * p2_patch_cached_path(int number);   // NULL if none; main thread
-const char * p2_patch_cached_name(int number);   // NULL if none; main thread
+void p2_patch_address(uint8_t dump[P2_DUMP_LENGTH], int number);
+void p2_patch_init_dump(int number, uint8_t dump[P2_DUMP_LENGTH]);
+void p2_presets_load(void);                                                                              // once per process
+bool p2_presets_refresh(void);                                                                           // main thread: re-read if the file changed; true if so
+bool p2_presets_store(int number, const uint8_t dump[P2_DUMP_LENGTH]);                                   // main thread; false if not written
+bool p2_presets_store_all(const uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]);
+bool p2_patch_cached(int number, double normalized[kP2ParamCount], char name[P2_SOUND_NAME_LENGTH + 1]); // audio thread
+void p2_presets_dump(int number, uint8_t dump[P2_DUMP_LENGTH]);                                          // main thread
+const char * p2_presets_name(int number);                                                                // main thread
+int p2_presets_read_file(const char * path, uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]);              // notes §7
+int p2_presets_read_folder(const char * folder, uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]);
+bool p2_presets_write_file(const char * path);
+int p2_presets_write_folder(const char * folder);          // files written, of 500
 int p2_patch_program_number(int bank, int program);
 
 #endif // __P2_PATCH_H__

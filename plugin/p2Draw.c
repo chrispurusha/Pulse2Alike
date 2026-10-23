@@ -20,7 +20,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <dirent.h>
 #include <stdlib.h>
 
 #include "p2Draw.h"
@@ -35,6 +34,7 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "fileBrowser.h"
+#include "bankBrowser.h"
 #include "alertDialog.h"
 #include "menuBar.h"
 #include "synthlibPopups.h"
@@ -69,7 +69,6 @@
 #define BUTTON_H                  (12.0)
 #define PATCH_BAR_X               (300.0)
 #define PATCH_BUTTON_H            (14.0)
-#define MAX_PATCH_FILES           (1024)
 #define NAME_FIELD_W              (128.0)    // 14 capitals
 #define FILE_LABEL_CHARS          (26)
 #define MENU_BG                   {0.22, 0.22, 0.25}
@@ -116,6 +115,11 @@ static tMenuItem            gMenuItems[MENU_MAX + 1];
 static const tP2PatchHost * gHost;
 static void *               gUser;
 static char                 gPatchPath[1024];
+static int                  gPreset;
+static bool                 gLinkBusy;
+static bool                 gBackupRunning;
+static int                  gBackupAsked, gBackupFound;
+static bool                 gPresetEdited;
 static tRectangle           gPrevRect, gNextRect, gLoadRect, gNameRect, gLinkRect;
 
 // notes §6: the sound's name, edited in place as SynthEdit's program name is
@@ -192,7 +196,7 @@ static void patch_folder(char * out, size_t len) {
             return;
         }
     }
-    snprintf(out, len, "%s", p2_patch_library_folder());
+    snprintf(out, len, "%s", p2_patch_sounds_folder());
 }
 
 static void load(const char * path) {
@@ -202,53 +206,32 @@ static void load(const char * path) {
     }
 }
 
-static int compare_names(const void * a, const void * b) {
-    return strcmp(*(const char *const *)a, *(const char *const *)b);
+void p2_draw_set_preset(int number, bool edited) {
+    gPreset       = number;
+    gPresetEdited = edited;
 }
 
-// notes §4: Prev/Next walk the .syx files of the current patch's folder, in name order (so in slot order)
+int p2_draw_preset(void) {
+    return gPreset;
+}
+
+static void load_preset(int number) {
+    if ((gHost != NULL) && (gUser != NULL)) {
+        gHost->loadPreset(gUser, number);
+        gPreset       = number;
+        gPresetEdited = false;
+        p2_draw_set_patch("");
+    }
+}
+
+// notes §4: Prev/Next step through P001-P500 and wrap, as the instrument's buttons do; from a file, Next is P001
 static void step_patch(int direction) {
-    char            folder[1024];
-    char *          names[MAX_PATCH_FILES];
-    int             count = 0, at = -1;
-    DIR *           dir;
-    struct dirent * e;
+    int from = gPreset;
 
-    patch_folder(folder, sizeof(folder));
-    dir = opendir(folder);
-
-    if (dir == NULL) {
-        return;
+    if (from == 0) {
+        from = (direction > 0) ? 0 : 1;
     }
-
-    while (((e = readdir(dir)) != NULL) && (count < MAX_PATCH_FILES)) {
-        size_t n = strlen(e->d_name);
-
-        if ((n > 4) && (strcmp(e->d_name + n - 4, ".syx") == 0)) {
-            names[count++] = strdup(e->d_name);
-        }
-    }
-    closedir(dir);
-    qsort(names, (size_t)count, sizeof(names[0]), compare_names);
-    const char *    current = strrchr(gPatchPath, '/');
-
-    for (int i = 0; (i < count) && (current != NULL); i++) {
-        if (strcmp(names[i], current + 1) == 0) {
-            at = i;
-        }
-    }
-
-    if (count > 0) {
-        int  next = (at < 0) ? 0 : (((at + direction) % count) + count) % count;
-        char path[1280];
-
-        snprintf(path, sizeof(path), "%s/%s", folder, names[next]);
-        load(path);
-    }
-
-    for (int i = 0; i < count; i++) {
-        free(names[i]);
-    }
+    load_preset((((from - 1 + direction) % P2_PATCH_SLOTS) + P2_PATCH_SLOTS) % P2_PATCH_SLOTS + 1);
 }
 
 static void on_file_chosen(const char * path) {
@@ -269,8 +252,265 @@ void p2_draw_open_patch(void) {
     open_file_browser_read(on_file_chosen);
 }
 
-void p2_draw_load_number(int number) {
-    load(p2_patch_cached_path(number));
+static int gStoreTo;
+
+static void on_store_confirmed(bool confirmed) {
+    char failed[1200];
+
+    if (!confirmed || (gHost == NULL) || (gUser == NULL)) {
+        return;
+    }
+
+    if (gHost->storePreset(gUser, gStoreTo)) {
+        gPreset       = gStoreTo;
+        gPresetEdited = false;
+        p2_draw_set_patch("");
+        return;
+    }
+    snprintf(failed, sizeof(failed), "Could not write %s", p2_presets_path());
+    show_alert("Store Preset", failed);
+}
+
+// notes §4: always confirmed, naming what the slot holds now
+void p2_draw_store_preset(int number) {
+    static char  message[160];
+    const char * name = ((gHost != NULL) && (gUser != NULL)) ? gHost->name(gUser) : "";
+
+    gStoreTo = (number > 0) ? number : gPreset;
+
+    if ((gStoreTo < 1) || (gStoreTo > P2_PATCH_SLOTS)) {
+        return;
+    }
+    snprintf(message, sizeof(message), "Store \"%s\" to P%03d, replacing \"%s\"?", name, gStoreTo, p2_presets_name(gStoreTo));
+    show_confirm("Store Preset", message, "Store", on_store_confirmed);
+}
+
+// ---- choosing a slot - notes §4: SynthLib's bank browser, as SynthEdit and G2Alike choose one -----------------
+
+static tBankBrowserItem gSlotItems[P2_PATCH_SLOTS];
+static char             gSlotNames[P2_PATCH_SLOTS][P2_SOUND_NAME_LENGTH + 8];
+
+static void fill_slot_items(void) {
+    p2_presets_refresh();
+
+    for (int n = 1; n <= P2_PATCH_SLOTS; n++) {
+        snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "P%03d %s", n, p2_presets_name(n));
+        gSlotItems[n - 1] = (tBankBrowserItem){
+            gSlotNames[n - 1], 0, (uint32_t)(((n - 1) / 100) + 1), (uint32_t)(((n - 1) % 100) + 1)
+        };
+    }
+}
+
+static int slot_number(uint32_t bank1Indexed, uint32_t location1Indexed) {
+    return (int)(((bank1Indexed - 1) * 100) + location1Indexed);
+}
+
+static void on_load_slot(bool confirmed, uint32_t bank1Indexed, uint32_t location1Indexed) {
+    if (confirmed) {
+        load_preset(slot_number(bank1Indexed, location1Indexed));
+    }
+}
+
+static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t location1Indexed) {
+    if (confirmed) {
+        p2_draw_store_preset(slot_number(bank1Indexed, location1Indexed));
+    }
+}
+
+void p2_draw_load_preset_browser(void) {
+    fill_slot_items();
+    open_bank_browser("Load Preset", "P001-P500, as banks 1-5 of 100.", "Load", gSlotItems, P2_PATCH_SLOTS, NULL, 0, on_load_slot);
+}
+
+void p2_draw_store_preset_browser(void) {
+    fill_slot_items();
+    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, P2_PATCH_SLOTS, NULL, 0,
+                      on_store_slot);
+}
+
+// ---- Backup Pulse 2 to Presets - notes §11 ---------------------------------------------------------------
+
+void p2_draw_set_backup(bool running, int asked, int found) {
+    gBackupRunning = running;
+    gBackupAsked   = asked;
+    gBackupFound   = found;
+}
+
+bool p2_draw_backing_up(void) {
+    return gBackupRunning;
+}
+
+static void on_backup_confirmed(bool confirmed) {
+    if (confirmed && (gHost != NULL) && (gUser != NULL)) {
+        int result = gHost->backup(gUser);
+
+        if (result == eP2HardwareSent) {
+            gBackupRunning = true;
+            gBackupAsked   = gBackupFound = 0;
+        } else {
+            p2_draw_hardware_problem(result);
+        }
+    }
+}
+
+void p2_draw_backup(void) {
+    show_confirm("Backup Pulse 2 to Presets",
+                 "Read all 500 sounds from the Pulse 2 into the presets, replacing them? It takes under a minute; slots "
+                 "that do not answer become INIT. Nothing on the Pulse 2 changes.", "Backup", on_backup_confirmed);
+}
+
+void p2_draw_cancel_backup(void) {
+    if ((gHost != NULL) && (gUser != NULL)) {
+        gHost->cancelBackup(gUser);
+    }
+}
+
+void p2_draw_backup_done(int found, bool stored) {
+    char message[1200];
+
+    if (found == 0) {
+        show_alert("Backup Pulse 2 to Presets", "Cancelled. The presets are as they were.");
+    } else if (!stored) {
+        snprintf(message, sizeof(message), "Read %d sounds, but could not write %s.", found, p2_presets_path());
+        show_alert("Backup Pulse 2 to Presets", message);
+    } else {
+        snprintf(message, sizeof(message), "Read %d sounds into the presets; %d slots did not answer and are INIT.", found,
+                 P2_PATCH_SLOTS - found);
+        show_alert("Backup Pulse 2 to Presets", message);
+    }
+}
+
+// As SynthEdit's "Backing Up Bank": a box over the panel, the count and a bar
+static void draw_backup_progress(void) {
+    double boxW = 360.0, boxH = 90.0, margin = 10.0, titleH = 24.0;
+    double boxX = (P2_CANVAS_W - boxW) / 2.0, boxY = (P2_CANVAS_H - boxH) / 2.0;
+    double barW = boxW - (margin * 2.0), barY = boxY + boxH - margin - 8.0;
+    char   line[96];
+
+    if (!gBackupRunning) {
+        return;
+    }
+    set_rgb_colour((tRgb)RGB_GREY_5);
+    render_rectangle_with_border(mainArea, (tRectangle){{boxX, boxY}, {boxW, boxH}});
+    set_rgb_colour((tRgb)RGB_GREY_3);
+    render_rectangle(mainArea, (tRectangle){{boxX, boxY}, {boxW, titleH}});
+    set_rgb_colour((tRgb)RGB_BLACK);
+    render_text(mainArea, (tRectangle){{boxX + margin, boxY + 6.0}, {0.0, 13.0}}, "Backing Up Pulse 2");
+    set_rgb_colour((tRgb)RGB_WHITE);
+    snprintf(line, sizeof(line), "Sound %d of %d", gBackupAsked, P2_PATCH_SLOTS);
+    render_text(mainArea, (tRectangle){{boxX + margin, boxY + titleH + margin}, {0.0, 13.0}}, line);
+    snprintf(line, sizeof(line), "%d read so far (Pulse 2 > Cancel Backup to stop)", gBackupFound);
+    render_text(mainArea, (tRectangle){{boxX + margin, boxY + titleH + margin + 19.0}, {0.0, 13.0}}, line);
+    set_rgb_colour((tRgb)RGB_GREY_2);
+    render_rectangle(mainArea, (tRectangle){{boxX + margin, barY}, {barW, 8.0}});
+    set_rgb_colour((tRgb)RGB_GREEN_ON);
+    render_rectangle(mainArea, (tRectangle){{boxX + margin, barY}, {barW * gBackupAsked / P2_PATCH_SLOTS, 8.0}});
+}
+
+// ---- import and export - notes §10 ------------------------------------------------------------------------
+
+static uint8_t gImport[P2_PATCH_SLOTS][P2_DUMP_LENGTH];
+
+static void on_import_confirmed(bool confirmed) {
+    char failed[1200];
+
+    if (!confirmed) {
+        return;
+    }
+
+    if (!p2_presets_store_all(gImport)) {
+        snprintf(failed, sizeof(failed), "Could not write %s", p2_presets_path());
+        show_alert("Import Presets", failed);
+    }
+}
+
+static void confirm_import(int count, const char * from) {
+    static char message[1400];
+
+    if (count == 0) {
+        snprintf(message, sizeof(message), "No Pulse 2 sounds found in %s", from);
+        show_alert("Import Presets", message);
+        return;
+    }
+    snprintf(message, sizeof(message), "Replace all 500 presets with the %d sound%s in %s? Slots it has no sound for become INIT.",
+             count, (count == 1) ? "" : "s", from);
+    show_confirm("Import Presets", message, "Replace", on_import_confirmed);
+}
+
+static void on_import_file_chosen(const char * path) {
+    if ((path != NULL) && (path[0] != '\0')) {
+        confirm_import(p2_presets_read_file(path, gImport), path);
+    }
+}
+
+static void on_import_folder_chosen(const char * path) {
+    if ((path != NULL) && (path[0] != '\0')) {
+        confirm_import(p2_presets_read_folder(path, gImport), path);
+    }
+}
+
+static void on_export_file_chosen(const char * path) {
+    char message[1200];
+
+    if ((path == NULL) || (path[0] == '\0')) {
+        return;
+    }
+
+    if (!p2_presets_write_file(path)) {
+        snprintf(message, sizeof(message), "Could not write %s", path);
+        show_alert("Export Presets", message);
+    }
+}
+
+static void on_export_folder_chosen(const char * path) {
+    char message[1200];
+    int  written;
+
+    if ((path == NULL) || (path[0] == '\0')) {
+        return;
+    }
+    written = p2_presets_write_folder(path);
+
+    if (written < P2_PATCH_SLOTS) {
+        snprintf(message, sizeof(message), "Wrote %d of 500 files to %s", written, path);
+        show_alert("Export Presets", message);
+    }
+}
+
+void p2_draw_import_presets(bool folder) {
+    set_file_browser_start_directory_provider(browser_start);
+
+    if (folder) {
+        open_file_browser_folder(on_import_folder_chosen, "Import Presets from Folder");
+    } else {
+        open_file_browser_read(on_import_file_chosen);
+    }
+}
+
+void p2_draw_export_presets(bool folder) {
+    set_file_browser_start_directory_provider(browser_start);
+
+    if (folder) {
+        open_file_browser_folder(on_export_folder_chosen, "Export Presets to Folder");
+    } else {
+        open_file_browser_write(on_export_file_chosen, "Pulse2Alike Presets.syx");
+    }
+}
+
+static void on_revert_confirmed(bool confirmed) {
+    if (confirmed) {
+        load_preset(gPreset);
+    }
+}
+
+void p2_draw_revert_preset(void) {
+    static char message[160];
+
+    if (gPreset == 0) {
+        return;
+    }
+    snprintf(message, sizeof(message), "Discard the edits and go back to P%03d \"%s\"?", gPreset, p2_presets_name(gPreset));
+    show_confirm("Revert to Stored Preset", message, "Revert", on_revert_confirmed);
 }
 
 bool p2_draw_has_patch_file(void) {
@@ -352,9 +592,13 @@ void p2_draw_send_to_hardware(void) {
     }
 }
 
+void p2_draw_set_link_busy(bool busy) {
+    gLinkBusy = busy;
+}
+
 void p2_draw_hardware_problem(int result) {
-    show_alert("Pulse 2", (result == eP2HardwareNotFound)
-               ? "No MIDI port with \"Pulse\" in its name. Is the Pulse 2 connected by USB?"
+    show_alert("Pulse 2", (result == eP2HardwareNotFound) ? "No MIDI port with \"Pulse\" in its name. Is the Pulse 2 connected by USB?"
+               : (result == eP2HardwareBusy) ? "Another Pulse2Alike has the Pulse 2 (its Link is on). Turn that off first."
                : "CoreMIDI would not send to the Pulse 2.");
 }
 
@@ -708,13 +952,20 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
                                  }
         };
         // notes §8: lit while the instrument follows the sound
-        draw_button(mainArea, gLinkRect, "Link HW", (p2_draw_value(kP2ParamHwLink) >= 0.5) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
+        // notes §8: amber and "Link busy" while another instance has the instrument
+        draw_button(mainArea, gLinkRect, gLinkBusy ? "Link busy" : "Link HW",
+                    (p2_draw_value(kP2ParamHwLink) < 0.5) ? (tRgb)RGB_GREY_7 : (gLinkBusy ? (tRgb){0.85, 0.6, 0.15}
+                                                                                                                    : (tRgb)RGB_GREEN_ON));
         draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
         draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
         draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
         draw_name_field();
 
-        if (base != NULL) {
+        if (gPreset > 0) {
+            snprintf(name, sizeof(name), "P%03d%s", gPreset, gPresetEdited ? "*" : "");
+            set_rgb_colour(gPresetEdited ? (tRgb)RGB_WHITE : (tRgb)RGB_GREY_5);
+            render_text(mainArea, (tRectangle){{gNameRect.coord.x + gNameRect.size.w + 8.0, TITLE_Y + 4.0}, {0.0, 11.0}}, name);
+        } else if (base != NULL) {
             snprintf(name, sizeof(name), "%s", base + 1);
 
             if ((strlen(name) > 4) && (strcmp(name + strlen(name) - 4, ".syx") == 0)) {
@@ -761,6 +1012,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
     }
     render_menu_bar(p2_menu_bar(), p2_menu_bar_rect());
     synthlib_popups_tick();
+    draw_backup_progress();
     synthlib_popups_render();  // menus, the file browser and dialogues, front-most last
     render_backend_flush();
 }

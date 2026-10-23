@@ -21,6 +21,19 @@ plug-in wrappers:
 - **EmuUtility**: E-mu EOS sampler utility
 - **GenBridge**, **MidiSyncTool**, **MidiSeqTool**: plug-ins using the same SynthLib library.
 
+## Installing
+
+From a release's `.dmg`: copy `Pulse2Alike.vst3` into `/Library/Audio/Plug-Ins/VST3` and `Pulse2Alike.component`
+into `/Library/Audio/Plug-Ins/Components` (Finder: Go > Go to Folder...). The builds are not notarized, so clear
+the quarantine before a host will load them:
+
+    sudo xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/Pulse2Alike.vst3
+    sudo xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/Components/Pulse2Alike.component
+
+Then restart the host or rescan its plug-ins; an Audio Unit host may need a log-out and in first. Built from
+source, `./do-plugin` installs both for you. The plug-in's Help menu explains the panel, sounds, program
+changes and linking a Pulse 2.
+
 ## Building
 
 ```

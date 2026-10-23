@@ -774,3 +774,22 @@ detuned oscillators beat at different phases - the DCOs do run free.
   remaining asymmetry); a forced-symmetric curve with no bias breaks the coupling loop (17 dB rms).
 - TUBE the same way, each side its own knee: 10.9 -> 8.2 dB; its bias sits at the fit's bound, so approximate. A bias
   per Drive went to the bounds with alternating signs - rejected.
+
+## 2026-10-23 - mod amounts (`p004_osc2/`, `p004_osc2/sweep/`)
+
+P004 WITH DELAY's osc 2 sounded flat on the plug-in going up from C4 (CT). Osc 2 has Keytrack OFF and gets the key
+back through PITCH FLW -> M-ACCU (Mod 5, 109) -> M-DELAY (Mod 7) -> OSC2 PITCH (Mod 8, 127). Each take was the sound
+sent to the edit buffer as a dump and read back before recording (a program change to the program already loaded
+is ignored, so CC edits from one take otherwise carry into the next), filter open, osc 1 and 3 and noise at 0;
+pitch from a harmonic-sum search over 20 Hz-2.5 kHz, read 0.30-0.70 s into each note.
+- **P004 as it is:** osc 2 = key - 3.00 at C2-C6, a slope of exactly 1.000. Osc 1 exact at C3-C7.
+- **Mod 8 at 64:** osc 2 = note 61 at every key - Keytrack OFF holds 60, Semitone +1 (p2Plugin notes §31 confirmed).
+- **So the chain is exactly (key - 64) x w5 x w8 x 128 / 64**, the PITCH FLW zero at note 64 as the code had it.
+- **Weights:** Mod 8 swept over every amount 65-127, and Mod 5 over 16 amounts, three notes each (C3, C4, C5),
+  each take a straight line to 0.01 semitone. Both give the same weight per amount, in 1/256 of full scale:
+  1/8, 1/4, 1/2, 1, 1.5, 2, 3 ... 8 (d 12), 10 ... 24 (d 20), 27.5, 30.25, 33 ... 128 (d 45) ... 240, 256 (d 63) -
+  the table is `kModWeight` (p2Plugin notes §51). d²/16 matches the shape but misses by up to 8/256, most at full
+  scale. Negative amounts mirror (−16, −32).
+- The old law gave P004's osc 2 0.958 semitone per key; with the table, exactly 1 (engine read-off, every C2-C7).
+- The first two takes of the day were not what they were labelled (the edits accumulated, see above) - discarded.
+

@@ -126,6 +126,23 @@ enum {
 #define MOD_SLOTS               (8)
 #define MOD_DEPTH_PER_SQUARE    (1.0 / 32.0)    // ±(amount − 64)² / 32 per unit of source, in the target's units: measured
 
+// notes §51: what an amount weighs, in 1/256 of full scale, at |amount − 64| = 0..64 - measured on the instrument.
+// Near (d/4)² but not equal: 1/8 doubling to 1 at d 4, straight runs between, full scale at 127
+static const double kModWeight[65] = {
+    0.0,   0.125,  0.25,   0.5,   1.0,   1.5,   2.0,   3.0,   4.0,   5.0,   6.0,   7.0,   8.0,  10.0,  12.0,  14.0, 16.0,
+    18.0,   20.0,  22.0,  24.0,  27.5, 30.25,  33.0,  36.0,  39.0,  42.0,  45.0,  49.0,  52.0,  56.0,  60.0,  64.0,
+    68.0,   72.0,  76.0,  81.0,  85.0,  90.0,  95.0, 100.0, 105.0, 110.0, 115.0, 121.0, 128.0, 132.0, 138.0, 144.0,
+    150.0, 156.0, 162.0, 169.0, 175.0, 182.0, 189.0, 196.0, 203.0, 210.0, 217.0, 225.0, 232.0, 240.0, 256.0, 256.0
+};
+
+// notes §51: an amount's weight as the d² it stands in for (16 x the table), between entries by interpolation
+static double mod_square(double d) {
+    double a = fmin(64.0, fabs(d));
+    int    i = (int)a;
+
+    return 16.0 * ((i >= 64) ? kModWeight[64] : (kModWeight[i] + ((a - i) * (kModWeight[i + 1] - kModWeight[i]))));
+}
+
 // notes §18: the math destinations, in the mod target list's order from M-ACCU, and as sources from 17
 enum {
     eMathAccu = 0,
@@ -178,79 +195,85 @@ typedef struct {
 } tP2Voice;
 
 typedef struct {
-    double      sampleRate;
-    double      param[kP2ParamCount]; // normalized
-    tP2Dco      dco[DCO_COUNT];
-    tP2Voice    voice[PARA_VOICES_MAX];
-    tP2Dco      unison[UNISON_OSCS]; // notes §21
-    tP2Drive    drive;
-    tP2Arp      arp;                 // notes §32
-    double      arpTicks;            // its own clock, when no host is playing
-    int         arpActiveSeen;       // notes §45: Arp Active as the engine last followed it
-    bool        arpGlide;            // the arp step now starting glides
-    double      source[25];          // the mod sources at the last control tick (the arp\'s accent)
-    double      driveOut;            // notes §25: the last drive output, which osc 3\'s FB shape feeds back
-    double      releaseVelocity;     // notes §28: the last note-off\'s
-    bool        sustained[128];      // notes §28: released while the pedal was down
-    double      mixCoupled;          // notes §37
-    double      filterCoupled;
-    double      osc3Coupled;         // notes §25: the coupling capacitor on osc 3\'s control path
-    uint32_t    voiceClock;          // allocation order, for stealing the most recent
+    double       sampleRate;
+    double       param[kP2ParamCount]; // normalized
+    tP2Dco       dco[DCO_COUNT];
+    tP2Voice     voice[PARA_VOICES_MAX];
+    tP2Dco       unison[UNISON_OSCS]; // notes §21
+    tP2Drive     drive;
+    tP2Arp       arp;                 // notes §32
+    double       arpTicks;            // its own clock, when no host is playing
+    int          arpActiveSeen;       // notes §45: Arp Active as the engine last followed it
+    bool         arpGlide;            // the arp step now starting glides
+    double       source[25];          // the mod sources at the last control tick (the arp\'s accent)
+    double       driveOut;            // notes §25: the last drive output, which osc 3\'s FB shape feeds back
+    double       releaseVelocity;     // notes §28: the last note-off\'s
+    bool         sustained[128];      // notes §28: released while the pedal was down
+    double       mixCoupled;          // notes §37
+    double       filterCoupled;
+    double       osc3Coupled;         // notes §25: the coupling capacitor on osc 3\'s control path
+    uint32_t     voiceClock;          // allocation order, for stealing the most recent
 
-    uint8_t     notes[NOTE_STACK_SIZE];
-    int         noteCount;
-    int64_t     glidePitch;       // notes §17: the glided note, 1/256 semitone units
-    bool        glideKnown;       // a note has sounded, so there is somewhere to glide from
-    double      glideClock;       // time not yet spent in 1 ms glide steps
-    tP2Lfo      lfo1, lfo2;
-    double      math[MATH_COUNT]; // notes §18
-    double      delayLine[DELAY_LINE_MS];
-    int         delayAt;
-    double      smooth;
-    _Atomic int programShown;                        // notes §20: the last program change's sound number, for the panel
-    int         programSynced;                       // main thread: the program the panel last took a base dump from
-    bool        haveBase;
-    uint8_t     baseDump[P2_DUMP_LENGTH];            // notes §23: main thread; the bytes a save keeps
-    char        soundName[P2_SOUND_NAME_LENGTH + 1]; // notes §24: main thread, as the panel shows and a save writes it
-    char        patchPath[1024];                     // the file it came from or went to; "" for none
-    double      lfo2Fade;                            // LFO 2's delay, 0..1 since the note
-    double      velocity;                            // the last note's, 0..1
-    double      mod[MOD_TARGETS];                    // what the mod matrix adds to each target, at the last tick
-    tP2Env      ampEnv;
-    tP2Env      filterEnv;
-    int         tickCountdown;    // host samples to the next control tick
-    double      vcaTarget;        // what the last tick asked for
-    double      vca;              // smoothed, applied to the audio
-    double      cutoffTarget;
-    double      cutoffNow;        // the cutoff the filter is set to, smoothed
+    uint8_t      notes[NOTE_STACK_SIZE];
+    int          noteCount;
+    int64_t      glidePitch;       // notes §17: the glided note, 1/256 semitone units
+    bool         glideKnown;       // a note has sounded, so there is somewhere to glide from
+    double       glideClock;       // time not yet spent in 1 ms glide steps
+    tP2Lfo       lfo1, lfo2;
+    double       math[MATH_COUNT]; // notes §18
+    double       delayLine[DELAY_LINE_MS];
+    int          delayAt;
+    double       smooth;
+    _Atomic int  programShown;                        // notes §20: the last program change's sound number, for the panel
+    int          preset;                              // notes §48: main thread; the preset the sound came from, 0 none
+    _Atomic bool startPreset;                         // notes §48: a new instance loads P001 - first block or first frame
+    double       presetsChecked;                      // notes §48: when the presets file was last looked at
+    bool         haveBase;
+    uint8_t      baseDump[P2_DUMP_LENGTH];            // notes §23: main thread; the bytes a save keeps
+    char         soundName[P2_SOUND_NAME_LENGTH + 1]; // notes §24: main thread, as the panel shows and a save writes it
+    char         patchPath[1024];                     // the file it came from or went to; "" for none
+    double       lfo2Fade;                            // LFO 2's delay, 0..1 since the note
+    double       velocity;                            // the last note's, 0..1
+    double       mod[MOD_TARGETS];                    // what the mod matrix adds to each target, at the last tick
+    tP2Env       ampEnv;
+    tP2Env       filterEnv;
+    int          tickCountdown;   // host samples to the next control tick
+    double       vcaTarget;       // what the last tick asked for
+    double       vca;             // smoothed, applied to the audio
+    double       cutoffTarget;
+    double       cutoffNow;       // the cutoff the filter is set to, smoothed
 
-    tP2Filter   filter;
-    double      cutoff;      // gliding towards the parameter, in steps
-    double      resonance;
-    double      lastNote;
-    int         oversample; // notes §33: 1, 2 or 4
-    double      decimator[DECIMATOR_TAPS];
-    double      history[DECIMATOR_TAPS];
-    uint32_t    historyPos;
-    uint32_t    noise;                 // xorshift state
-    double      noiseLp[4];            // notes §34: the band limit, two biquad states
-    double      noiseColour;
-    double      levelTarget[5];        // notes §43: osc 1-3, noise, the feedthrough - set per control tick
-    double      levelNow[5];           //   and glided per sample
-    bool        levelsSet;
-    double      feedCoupled;
-    double      oscEvenDc[3];
-    double      vcaCoupled;
-    double      hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
-    bool        hwValid;
-    bool        hwDumpDue;
-    double      hwLastDump;
-    double      hwDumpNotBefore;
-    int         hwProgram;      // notes §41: the library number the instrument was last sent, 0 none
-    double      hwChannelKnown; // notes §46: the channel as last read or saved, negative before the first
-    double      slewed;         // notes §40
-    double      hissLp[8];      // notes §38: the same, for the two hiss sources
-    uint32_t    faults;         // notes §47
+    tP2Filter    filter;
+    double       cutoff;     // gliding towards the parameter, in steps
+    double       resonance;
+    double       lastNote;
+    int          oversample; // notes §33: 1, 2 or 4
+    double       decimator[DECIMATOR_TAPS];
+    double       history[DECIMATOR_TAPS];
+    uint32_t     historyPos;
+    uint32_t     noise;                // xorshift state
+    double       noiseLp[4];           // notes §34: the band limit, two biquad states
+    double       noiseColour;
+    double       levelTarget[5];       // notes §43: osc 1-3, noise, the feedthrough - set per control tick
+    double       levelNow[5];          //   and glided per sample
+    bool         levelsSet;
+    double       feedCoupled;
+    double       oscEvenDc[3];
+    double       vcaCoupled;
+    double       hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
+    bool         hwValid;
+    bool         hwDumpDue;
+    double       hwLastDump;
+    double       hwDumpNotBefore;
+    int          hwProgram;      // notes §41: the library number the instrument was last sent, 0 none
+    double       hwChannelKnown; // notes §46: the channel as last read or saved, negative before the first
+    int          hwLock;         // notes §49: this instance's hold on the instrument, -1 none
+    bool         hwBusy;         // notes §49: Link on, but another instance owns the instrument
+    bool         backingUp;      // notes §50: this instance is reading the instrument's sounds
+    bool         backupLock;     //   and took the lock for it (Link did not already hold it)
+    double       slewed;         // notes §40
+    double       hissLp[8];      // notes §38: the same, for the two hiss sources
+    uint32_t     faults;         // notes §47
 } tP2Plugin;
 
 static double plain(const tP2Plugin * p, uint32_t id) {
@@ -629,11 +652,11 @@ static void control_tick(tP2Plugin * p, double dt) {
         double sign         = (d < 0.0) ? -1.0 : 1.0;
 
         if (target < eModMathFirst) {
-            p->mod[target] += in * sign * d * d * MOD_DEPTH_PER_SQUARE;
+            p->mod[target] += in * sign * mod_square(d) * MOD_DEPTH_PER_SQUARE;
             continue;
         }
         // notes §18
-        double contribution = in * sign * d * d / 4096.0;
+        double contribution = in * sign * mod_square(d) / 4096.0;
 
         sum[target] += contribution;
         double clipped      = fmin(1.0, fmax(-1.0, sum[target]));
@@ -734,6 +757,7 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     snprintf(p->soundName, sizeof(p->soundName), "INIT");
     p2_arp_reset(&p->arp);
     p->hwChannelKnown      = -1.0;
+    p->hwLock              = -1;
 #ifndef P2_NO_EDITOR
     p2_prefs_init();
 #endif
@@ -746,7 +770,8 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
 
     p->oversample          = 1 << plain_int(p, kP2ParamOversample);
     build_decimator(p);
-    p2_patch_cache_load();
+    p2_presets_load();
+    p->startPreset         = true;
     p2_filter_init(&p->filter, p->sampleRate * p->oversample);
     p2_drive_init(&p->drive, p->sampleRate * p->oversample);
     glide_controls(p, true);
@@ -760,12 +785,24 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
 }
 
 static void p2_destroy(void * inst) {
+#ifndef P2_NO_EDITOR
+    if (((tP2Plugin *)inst)->backingUp) {
+        static uint8_t discard[P2_PATCH_SLOTS][P2_DUMP_LENGTH];
+
+        p2_hardware_backup_cancel();
+        (void)p2_hardware_backup_take(discard);
+    }
+    p2_hardware_release(&((tP2Plugin *)inst)->hwLock);
+#endif
     free(inst);
 }
 
-// notes §24: the plug-in's own state, after the parameters - the sound's name, the file, and the dump a save keeps
-#define STATE_MAGIC     "P2S1"
-#define STATE_LENGTH    (4 + (P2_SOUND_NAME_LENGTH + 1) + 1 + P2_DUMP_LENGTH + 1024)
+// notes §24: the plug-in's own state, after the parameters - the sound's name, the file, the dump a save keeps and
+// (P2S2, notes §48) the preset it came from
+#define STATE_MAGIC_V1     "P2S1"
+#define STATE_MAGIC        "P2S2"
+#define STATE_LENGTH_V1    (4 + (P2_SOUND_NAME_LENGTH + 1) + 1 + P2_DUMP_LENGTH + 1024)
+#define STATE_LENGTH       (STATE_LENGTH_V1 + 2)
 
 static size_t p2_get_state(void * inst, void * out, size_t len) {
     tP2Plugin * p = (tP2Plugin *)inst;
@@ -779,16 +816,24 @@ static size_t p2_get_state(void * inst, void * out, size_t len) {
     o[4 + P2_SOUND_NAME_LENGTH + 1] = p->haveBase ? 1 : 0;
     memcpy(o + 4 + P2_SOUND_NAME_LENGTH + 2, p->baseDump, P2_DUMP_LENGTH);
     memcpy(o + 4 + P2_SOUND_NAME_LENGTH + 2 + P2_DUMP_LENGTH, p->patchPath, 1024);
+    o[STATE_LENGTH_V1]              = (uint8_t)(p->preset >> 8);
+    o[STATE_LENGTH_V1 + 1]          = (uint8_t)(p->preset & 0xFF);
     return STATE_LENGTH;
 }
 
 static void p2_set_state(void * inst, const void * data, size_t len) {
-    tP2Plugin *     p = (tP2Plugin *)inst;
-    const uint8_t * d = (const uint8_t *)data;
+    tP2Plugin *     p  = (tP2Plugin *)inst;
+    const uint8_t * d  = (const uint8_t *)data;
 
-    if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
+    bool            v2 = (data != NULL) && (len >= STATE_LENGTH) && (memcmp(d, STATE_MAGIC, 4) == 0);
+
+    if (!v2 && ((data == NULL) || (len < STATE_LENGTH_V1) || (memcmp(d, STATE_MAGIC_V1, 4) != 0))) {
         return;
     }
+    atomic_store(&p->startPreset, false);   // a project's sound, not P001
+    p->preset                          = v2 ? ((d[STATE_LENGTH_V1] << 8) | d[STATE_LENGTH_V1 + 1]) : 0;
+    p->preset                          = ((p->preset >= 1) && (p->preset <= P2_PATCH_SLOTS)) ? p->preset : 0;
+    atomic_store(&p->programShown, p->preset);
     memcpy(p->soundName, d + 4, P2_SOUND_NAME_LENGTH + 1);
     p->soundName[P2_SOUND_NAME_LENGTH] = '\0';
     p->haveBase                        = d[4 + P2_SOUND_NAME_LENGTH + 1] != 0;
@@ -801,6 +846,10 @@ static void p2_prepare(void * inst, const tSynthLibSetup * setup) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
     p->sampleRate = setup->sampleRate;
+
+    if (setup->offline) {
+        atomic_store(&p->startPreset, false);   // notes §48: an offline render plays what it is given
+    }
     p2_filter_init(&p->filter, p->sampleRate * p->oversample);
     p2_drive_init(&p->drive, p->sampleRate * p->oversample);
     glide_controls(p, true);
@@ -1048,9 +1097,15 @@ static void level_targets(tP2Plugin * p) {
     }
 }
 
+static void preset_change(tP2Plugin * p, int number);
+
 static void p2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * t) {
     tP2Plugin *    p         = (tP2Plugin *)inst;
+
+    if (atomic_exchange(&p->startPreset, false)) {   // notes §48
+        preset_change(p, 1);
+    }
     // notes §30: a pulse is quieter than the DCO's saw; the three oscillators' share in the mix
     int32_t        shape1    = plain_int(p, kP2ParamOsc1Shape);
     double         mix1      = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
@@ -1260,11 +1315,10 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     }
 }
 
-// notes §20: a program change - the cached sound, onto every parameter it carries, and the host told of each
-static void program_change(tP2Plugin * p, int program) {
+// notes §20: a preset by number - the cached sound, onto every parameter it carries, and the host told of each
+static void preset_change(tP2Plugin * p, int number) {
     double values[kP2ParamCount];
     char   name[P2_SOUND_NAME_LENGTH + 1];
-    int    number = p2_patch_program_number(plain_int(p, kP2ParamBank), program);
 
     // notes §20: the sound already loaded is left as it is, edits and all
     if (number == atomic_load(&p->programShown)) {
@@ -1288,6 +1342,10 @@ static void program_change(tP2Plugin * p, int program) {
 
     update_dcos(p);
     atomic_store(&p->programShown, number);
+}
+
+static void program_change(tP2Plugin * p, int program) {
+    preset_change(p, p2_patch_program_number(plain_int(p, kP2ParamBank), program));
 }
 
 static void p2_set_param(void * inst, uint32_t id, double normalized) {
@@ -1358,10 +1416,17 @@ static void p2_edit_param(void * user, uint32_t id, double normalized);
 static const char * p2_sound_name(void * user);
 static void p2_rename(void * user, const char * name);
 static int p2_send_to_hardware(void * user);
+static void p2_load_preset(void * user, int number);
+static bool p2_store_preset(void * user, int number);
+static int p2_preset_number(void * user);
+static int p2_backup_start(void * user);
+static void p2_backup_cancel(void * user);
 
 static const tP2PatchHost gPatchHost = {
-    .load = p2_load_patch, .save   = p2_save_patch, .init = p2_init_patch, .edit = p2_edit_param,
-    .name = p2_sound_name, .rename = p2_rename,     .send = p2_send_to_hardware
+    .load       = p2_load_patch,   .save         = p2_save_patch,   .init   = p2_init_patch,       .edit = p2_edit_param,
+    .name       = p2_sound_name,   .rename       = p2_rename,       .send   = p2_send_to_hardware,
+    .loadPreset = p2_load_preset,  .storePreset  = p2_store_preset, .preset = p2_preset_number,
+    .backup     = p2_backup_start, .cancelBackup = p2_backup_cancel
 };
 
 static void p2_panel_init(void) {
@@ -1400,9 +1465,9 @@ static void p2_init_patch(void * user) {
         }
     }
 
-    p->haveBase      = false;
-    p->patchPath[0]  = '\0';
-    p->programSynced = 0;
+    p->haveBase     = false;
+    p->patchPath[0] = '\0';
+    p->preset       = 0;
     atomic_store(&p->programShown, 0);
     set_sound_name(p, "INIT");
 }
@@ -1466,7 +1531,6 @@ static bool p2_save_patch(void * user, const char * path) {
     memcpy(p->baseDump, dump, sizeof(dump));
     p->haveBase                = true;
     snprintf(p->patchPath, sizeof(p->patchPath), "%s", path);
-    p2_patch_cache_store(p2_patch_library_number(path), dump, path);   // a program change then plays it
     synthlib_log_line("saved \"%s\" to %s", name, path);
     return true;
 }
@@ -1492,13 +1556,82 @@ static void p2_load_patch(void * user, const char * path) {
         }
     }
 
-    ((tP2Plugin *)user)->haveBase      = p2_patch_read_dump(path, ((tP2Plugin *)user)->baseDump);
+    ((tP2Plugin *)user)->haveBase = p2_patch_read_dump(path, ((tP2Plugin *)user)->baseDump);
     snprintf(((tP2Plugin *)user)->patchPath, sizeof(((tP2Plugin *)user)->patchPath), "%s", path);
     set_sound_name((tP2Plugin *)user, name);
-    // the program it is in the library, if it is: a program change to it is then ignored like the instrument's own
-    ((tP2Plugin *)user)->programSynced = p2_patch_library_number(path);
-    atomic_store(&((tP2Plugin *)user)->programShown, ((tP2Plugin *)user)->programSynced);
+    ((tP2Plugin *)user)->preset   = 0; // notes §48: a file is not a preset until it is stored to one
+    atomic_store(&((tP2Plugin *)user)->programShown, 0);
     synthlib_log_line("loaded \"%s\" from %s", name, path);
+}
+
+// notes §48: a preset chosen on the panel (by number, Prev/Next, Revert) - as a file is, from the cache
+static void p2_load_preset(void * user, int number) {
+    tP2Plugin * p = (tP2Plugin *)user;
+    double      values[kP2ParamCount];
+    char        name[P2_SOUND_NAME_LENGTH + 1];
+    uint8_t     dump[P2_DUMP_LENGTH];
+
+    if ((number < 1) || (number > P2_PATCH_SLOTS)) {
+        return;
+    }
+    p2_presets_refresh();
+    p2_presets_dump(number, dump);
+
+    for (uint32_t id = 0; id < kP2ParamCount; id++) {
+        values[id] = synthlib_plugin_param_value(user, id);
+    }
+
+    if (!p2_patch_from_syx(dump, P2_DUMP_LENGTH, values, name)) {
+        return;
+    }
+
+    for (uint32_t id = 0; id < kP2ParamCount; id++) {
+        if (sound_param(id)) {
+            synthlib_plugin_param_edited(user, id, values[id]);
+        }
+    }
+
+    memcpy(p->baseDump, dump, P2_DUMP_LENGTH);
+    p->haveBase     = true;
+    p->patchPath[0] = '\0';
+    p->preset       = number;
+    atomic_store(&p->programShown, number);
+    set_sound_name(p, name);
+}
+
+// notes §48: the sound as it is now into preset n - the file and the cache, which program changes then play
+static bool p2_store_preset(void * user, int number) {
+    tP2Plugin * p = (tP2Plugin *)user;
+    uint8_t     dump[P2_DUMP_LENGTH];
+
+    current_dump(user, "", dump);
+
+    if (!p2_presets_store(number, dump)) {
+        synthlib_log_line("could not store P%03d to %s", number, p2_presets_path());
+        return false;
+    }
+    p2_presets_dump(number, p->baseDump);
+    p->haveBase = true;
+    p->preset   = number;
+    atomic_store(&p->programShown, number);
+    synthlib_log_line("stored \"%s\" to P%03d", p->soundName, number);
+    return true;
+}
+
+static int p2_preset_number(void * user) {
+    return ((tP2Plugin *)user)->preset;
+}
+
+// notes §48: edited since its recall or store - the sound's bytes against the preset's, address and checksum aside
+static bool preset_edited(tP2Plugin * p, void * user) {
+    uint8_t now[P2_DUMP_LENGTH], stored[P2_DUMP_LENGTH];
+
+    if (p->preset == 0) {
+        return false;
+    }
+    current_dump(user, "", now);
+    p2_presets_dump(p->preset, stored);
+    return memcmp(now + 7, stored + 7, P2_DUMP_LENGTH - 9) != 0;
 }
 
 // ---- the instrument, over USB MIDI (notes §41) --------------------------------------------------
@@ -1547,11 +1680,21 @@ static double now_seconds(void) {
 }
 
 static int p2_send_to_hardware(void * user) {
-    tP2Plugin * p = (tP2Plugin *)user;
-    uint8_t     dump[P2_DUMP_LENGTH];
+    tP2Plugin *       p         = (tP2Plugin *)user;
+    bool              temporary = p->hwLock < 0;   // notes §49: a one-off send holds it only while it sends
+    uint8_t           dump[P2_DUMP_LENGTH];
+    tP2HardwareResult result;
 
+    if (!p2_hardware_claim(&p->hwLock)) {
+        return (int)eP2HardwareBusy;
+    }
     current_dump(user, p->patchPath, dump);
-    return (int)p2_hardware_send_to_edit_buffer(dump);
+    result = p2_hardware_send_to_edit_buffer(dump);
+
+    if (temporary) {
+        p2_hardware_release(&p->hwLock);
+    }
+    return (int)result;
 }
 
 // notes §41: run from the editor's frame - every sound parameter that moved since the last send goes by its CC,
@@ -1563,7 +1706,21 @@ static void hardware_follow(tP2Plugin * p, void * user) {
     int               changes = 0;
     int               channel = (int)lround(synthlib_plugin_param_value(user, kP2ParamHwChannel) * 15.0);
 
+    if (p->backingUp) {          // notes §50: the instrument is busy answering; Link catches up afterwards
+        p->hwValid = false;
+        return;
+    }
+
     if (synthlib_plugin_param_value(user, kP2ParamHwLink) < 0.5) {
+        p->hwValid = false;
+        p->hwBusy  = false;
+        p2_hardware_release(&p->hwLock);
+        return;
+    }
+    // notes §49: Link on but the instrument is another instance's - idle until it is free, then all of the sound
+    p->hwBusy     = !p2_hardware_claim(&p->hwLock);
+
+    if (p->hwBusy) {
         p->hwValid = false;
         return;
     }
@@ -1571,7 +1728,7 @@ static void hardware_follow(tP2Plugin * p, void * user) {
 
     // notes §41: a sound from the library goes as its program change too, so the instrument shows its number; the
     // dump follows once the instrument has loaded it, and carries any edits
-    int               number  = p2_patch_file_number(p->patchPath);
+    int number = p->preset;
 
     if (!p->hwValid) {
         p->hwProgram = 0;
@@ -1651,22 +1808,92 @@ static void hardware_channel_pref(tP2Plugin * p, void * user) {
     }
 }
 
+// notes §50: Backup Pulse 2 to Presets - the lock for its whole run, then all 500 stored at once
+static int p2_backup_start(void * user) {
+    tP2Plugin *       p    = (tP2Plugin *)user;
+    bool              held = p->hwLock >= 0;
+    tP2HardwareResult result;
+
+    if (p->backingUp) {
+        return (int)eP2HardwareBusy;
+    }
+
+    if (!p2_hardware_claim(&p->hwLock)) {
+        return (int)eP2HardwareBusy;
+    }
+    result        = p2_hardware_backup_start();
+
+    if (result != eP2HardwareSent) {
+        if (!held) {
+            p2_hardware_release(&p->hwLock);
+        }
+        return (int)result;
+    }
+    p->backingUp  = true;
+    p->backupLock = !held;
+    synthlib_log_line("backup started");
+    return (int)eP2HardwareSent;
+}
+
+static void p2_backup_cancel(void * user) {
+    if (((tP2Plugin *)user)->backingUp) {
+        p2_hardware_backup_cancel();
+    }
+}
+
+static void backup_follow(tP2Plugin * p) {
+    static uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH];
+    int            asked, found;
+
+    if (!p->backingUp) {
+        return;
+    }
+
+    if (!p2_hardware_backup_poll(&asked, &found)) {
+        p2_draw_set_backup(true, asked, found);
+        return;
+    }
+    found        = p2_hardware_backup_take(dumps);
+    p->backingUp = false;
+
+    if (p->backupLock) {
+        p2_hardware_release(&p->hwLock);
+    }
+    p2_draw_set_backup(false, asked, found);
+    synthlib_log_line("backup finished: %d asked, %d sounds", asked, found);
+    p2_draw_backup_done(found, (found > 0) && p2_presets_store_all(dumps));
+}
+
 static void p2_panel_sync(void * user) {
     tP2Plugin * p      = (tP2Plugin *)user;
     int         number = atomic_load(&p->programShown);
 
     p2_draw_set_user(user);
 
+    if (atomic_exchange(&p->startPreset, false)) {   // notes §48: no audio block yet - the editor loads it
+        p2_load_preset(user, 1);
+    }
+
+    // notes §48: another process's store shows within a second
+    if ((now_seconds() - p->presetsChecked) >= 1.0) {
+        p->presetsChecked = now_seconds();
+        (void)p2_presets_refresh();
+    }
+
     // a program change: the panel names it, and a save keeps its dump's bytes
-    if ((number != 0) && (number != p->programSynced) && (p2_patch_cached_path(number) != NULL)) {
-        snprintf(p->patchPath, sizeof(p->patchPath), "%s", p2_patch_cached_path(number));
-        set_sound_name(p, p2_patch_cached_name(number));
-        p->haveBase      = p2_patch_read_dump(p->patchPath, p->baseDump);
-        p->programSynced = number;
+    if ((number != 0) && (number != p->preset)) {
+        set_sound_name(p, p2_presets_name(number));
+        p2_presets_dump(number, p->baseDump);
+        p->haveBase     = true;
+        p->patchPath[0] = '\0';
+        p->preset       = number;
     }
     p2_draw_set_patch(p->patchPath);      // notes §24: this instance's, every sync
+    p2_draw_set_preset(p->preset, preset_edited(p, user));
     hardware_channel_pref(p, user);
+    backup_follow(p);
     hardware_follow(p, user);
+    p2_draw_set_link_busy(p->hwBusy);
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         p2_draw_set_value(id, synthlib_plugin_param_value(user, id));

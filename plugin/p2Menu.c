@@ -32,9 +32,6 @@
 #include "p2Patch.h"
 #include "p2Prefs.h"
 
-#define BANKS            (5)
-#define GROUPS           (10)    // of ten sounds, to a bank
-#define GROUP_SIZE       (10)
 #define ITEM             (tRgb)RGB_GREY_3
 #define ITEM_DISABLED    (tRgb)RGB_GREY_5
 #define END_OF_MENU      (tMenuItem){NULL, (tRgb)RGB_BLACK, NULL, 0, NULL, 0, 0.0, NULL}
@@ -66,69 +63,51 @@ static void action_send_to_hardware(int index) {
     p2_draw_send_to_hardware();
 }
 
-static void action_reload_library(int index) {
+static void action_load_preset(int index) {
     (void)index;
-    p2_patch_cache_reload();
+    p2_draw_load_preset_browser();
 }
 
-// notes §1: the item's param is its sound number
-static void action_load_number(int index) {
-    p2_draw_load_number((int)gContextMenu.items[index].param);
+static void action_store_to(int index) {
+    (void)index;
+    p2_draw_store_preset_browser();
 }
 
-static tMenuItem gBankItems[BANKS + 1];
-static tMenuItem gGroupItems[BANKS][GROUPS + 1];
-static tMenuItem gSoundItems[BANKS * GROUPS][GROUP_SIZE + 1];
-static char      gBankLabels[BANKS][16];
-static char      gGroupLabels[BANKS * GROUPS][16];
-static char      gSoundLabels[BANKS * GROUPS * GROUP_SIZE][P2_SOUND_NAME_LENGTH + 8];
+static void action_store(int index) {
+    (void)index;
+    p2_draw_store_preset(0);
+}
 
-// notes §1: Bank > ten sounds > the sounds by name, built as the menu opens so a save or a reload shows at once
-static void build_number_menu(void) {
-    for (int b = 0; b < BANKS; b++) {
-        snprintf(gBankLabels[b], sizeof(gBankLabels[b]), "P%03d-P%03d", (b * 100) + 1, (b + 1) * 100);
+static void action_revert(int index) {
+    (void)index;
+    p2_draw_revert_preset();
+}
 
-        for (int g = 0; g < GROUPS; g++) {
-            int group = (b * GROUPS) + g;
+static void action_import(int index) {
+    p2_draw_import_presets(gContextMenu.items[index].param != 0);
+}
 
-            for (int s = 0; s < GROUP_SIZE; s++) {
-                int          number = (group * GROUP_SIZE) + s + 1;
-                const char * name   = p2_patch_cached_name(number);
+static void action_export(int index) {
+    p2_draw_export_presets(gContextMenu.items[index].param != 0);
+}
 
-                snprintf(gSoundLabels[number - 1], sizeof(gSoundLabels[0]), "%03d %s", number, (name != NULL) ? name : "-");
-                gSoundItems[group][s] = (tMenuItem){
-                    gSoundLabels[number - 1], (name != NULL) ? ITEM : ITEM_DISABLED, (name != NULL) ? action_load_number : NULL,
-                    (uint32_t)number, NULL, 0, 0.0, NULL
-                };
-            }
+static void action_backup(int index) {
+    (void)index;
+    p2_draw_backup();
+}
 
-            gSoundItems[group][GROUP_SIZE] = END_OF_MENU;
-            snprintf(gGroupLabels[group], sizeof(gGroupLabels[0]), "P%03d-P%03d", (group * GROUP_SIZE) + 1, (group + 1) * GROUP_SIZE);
-            gGroupItems[b][g]              = (tMenuItem){
-                gGroupLabels[group], ITEM, NULL, 0, gSoundItems[group], 1, 0.0, NULL
-            };
-        }
-
-        gGroupItems[b][GROUPS] = END_OF_MENU;
-        gBankItems[b]          = (tMenuItem){
-            gBankLabels[b], ITEM, NULL, 0, gGroupItems[b], 1, 0.0, NULL
-        };
-    }
-
-    gBankItems[BANKS] = END_OF_MENU;
+static void action_cancel_backup(int index) {
+    (void)index;
+    p2_draw_cancel_backup();
 }
 
 static void open_file_menu(tCoord anchor) {
-    static tMenuItem items[10];
+    static tMenuItem items[8];
     bool             haveFile = p2_draw_has_patch_file();
     int              i        = 0;
 
-    build_number_menu();
     items[i++] = (tMenuItem){
         "Open Patch...", ITEM, action_open, 0, NULL, 0, 0.0, NULL
-    };
-    items[i++] = (tMenuItem){
-        "Load Patch by Number", ITEM, NULL, 0, gBankItems, 1, 0.0, NULL
     };
     items[i++] = (tMenuItem){
         "Save Patch", haveFile ? ITEM : ITEM_DISABLED, haveFile ? action_save : NULL, 0, NULL, 0, 0.0, NULL
@@ -139,11 +118,61 @@ static void open_file_menu(tCoord anchor) {
     items[i++] = (tMenuItem){
         "Init Patch...", ITEM, action_init, 0, NULL, 0, 0.0, NULL
     };
+    items[i++] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
+// notes §3
+static void open_presets_menu(tCoord anchor) {
+    static tMenuItem items[12];
+    static char      storeLabel[32], revertLabel[40];
+    int              preset = p2_draw_preset();
+    int              i      = 0;
+
+    snprintf(storeLabel, sizeof(storeLabel), (preset > 0) ? "Store Preset to P%03d" : "Store Preset", preset);
+    snprintf(revertLabel, sizeof(revertLabel), (preset > 0) ? "Revert to Stored P%03d" : "Revert to Stored Preset", preset);
     items[i++] = (tMenuItem){
-        "Reload Patch Library", ITEM, action_reload_library, 0, NULL, 0, 0.0, NULL
+        "Load Preset...", ITEM, action_load_preset, 0, NULL, 0, 0.0, NULL
     };
     items[i++] = (tMenuItem){
-        "Send Sound to Pulse 2", ITEM, action_send_to_hardware, 0, NULL, 0, 0.0, NULL
+        storeLabel, (preset > 0) ? ITEM : ITEM_DISABLED, (preset > 0) ? action_store : NULL, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Store Preset to...", ITEM, action_store_to, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        revertLabel, (preset > 0) ? ITEM : ITEM_DISABLED, (preset > 0) ? action_revert : NULL, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Import Presets from File...", ITEM, action_import, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Import Presets from Folder...", ITEM, action_import, 1, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Export Presets to File...", ITEM, action_export, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Export Presets to Folder...", ITEM, action_export, 1, NULL, 0, 0.0, NULL
+    };
+    items[i++] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
+// notes §4: the instrument - read only, for now: nothing here writes its memory
+static void open_pulse2_menu(tCoord anchor) {
+    static tMenuItem items[4];
+    bool             running = p2_draw_backing_up();
+    int              i       = 0;
+
+    items[i++] = (tMenuItem){
+        "Send Sound to Pulse 2", running ? ITEM_DISABLED : ITEM, running ? NULL : action_send_to_hardware, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = running ? (tMenuItem){
+        "Cancel Backup", ITEM, action_cancel_backup, 0, NULL, 0, 0.0, NULL
+    }
+      : (tMenuItem){
+        "Backup Pulse 2 to Presets...", ITEM, action_backup, 0, NULL, 0, 0.0, NULL
     };
     items[i++] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
@@ -191,18 +220,74 @@ static void action_about(int index) {
     show_alert("About", synthlib_about_text("Pulse2Alike"));
 }
 
-static void open_help_menu(tCoord anchor) {
-    static tMenuItem items[2];
+// notes §2: one alert per topic; each stays within the alert's 32 wrapped lines
+static const char *const kHelpTitles[] = {"The Panel", "Sounds and Program Changes", "Linking a Pulse 2", "Plug-in Settings"};
+static const char *const kHelpTexts[]  = {
+    "The pages across the top hold every control of the instrument; GLOBAL has the performance and plug-in settings.\n\n"
+    "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the pointer "
+    "round the dial, Vertical and Horizontal count its movement.\n\n"
+    "Lists (shapes, filter type, modulation sources and targets) open a menu of their values on a click.\n\n"
+    "The name field: click to rename the sound (14 characters, capitals); Return keeps it, Escape drops it. "
+    "It reaches a file at the next save.\n\n"
+    "< Prev and Next > step through the .syx files in the current sound's folder; Load... opens the file browser.",
 
-    items[0] = (tMenuItem){
+    "The plug-in keeps 500 presets, P001-P500, as the instrument does. Program changes play them: bank select "
+    "(CC 32) picks the hundred, bank 0 for P001-P100 up to bank 4 for P401-P500. < Prev and Next > step through "
+    "them; P012* means the sound has been edited since.\n\n"
+    "Presets > Load Preset and Store Preset to choose a slot; Store Preset puts it back where it came from, "
+    "Revert discards the edits. Import from a file or a folder of \"NNN Name.syx\" files replaces all 500; "
+    "Export writes them out. Pulse 2 > Backup reads all 500 from the instrument.\n\n"
+    "Single sounds are .syx files: File > Open Patch, Save Patch, Save Patch As. Init Patch sets every control "
+    "to its default.\n\n"
+    "A host project keeps its sound as edited: reopening it does not reload the preset.",
+
+    "Link HW (left of Prev, or Link on the GLOBAL page) makes a Pulse 2 on USB follow the sound: each change goes "
+    "to it as it is made, by MIDI controller where the instrument has one and as a sound dump otherwise. A sound "
+    "loaded by number also selects that number on the instrument.\n\n"
+    "Set Channel on the GLOBAL page to the instrument's MIDI channel; it is remembered for every project.\n\n"
+    "File > Send Sound to Pulse 2 sends the sound once. Both only ever replace the instrument's edit buffer: "
+    "nothing is stored to its memory.\n\n"
+    "Link works while the plug-in's window is open.",
+
+    "Oversample runs the engine at 1, 2 or 4 times the host's rate (4 is the default and the cleanest; lower "
+    "saves processing). Changing it clicks once.\n\n"
+    "Anomalies keeps the instrument's own quirks: modulation in 1 ms steps, and the drive's FX curve silent. "
+    "Off, everything moves smoothly.\n\n"
+    "Hiss adds the instrument's faint hiss while a note sounds.\n\n"
+    "None of these is saved with a sound.\n\n"
+    "For a diagnostic log: in Terminal, touch /tmp/pulse2alike-log, then reload the plug-in; the log is "
+    "/tmp/pulse2alike.log.",
+};
+
+static void action_help(int index) {
+    int topic = (int)gContextMenu.items[index].param;
+
+    show_alert(kHelpTitles[topic], kHelpTexts[topic]);
+}
+
+static void open_help_menu(tCoord anchor) {
+    static tMenuItem items[7];
+    static char      labels[4][48];
+    int              i = 0;
+
+    for (int t = 0; t < 4; t++) {
+        snprintf(labels[t], sizeof(labels[t]), "%s...", kHelpTitles[t]);
+        items[i++] = (tMenuItem){
+            labels[t], ITEM, action_help, (uint32_t)t, NULL, 0, 0.0, NULL
+        };
+    }
+
+    items[i++] = (tMenuItem){
         "About Pulse2Alike...", ITEM, action_about, 0, NULL, 0, 0.0, NULL
     };
-    items[1] = END_OF_MENU;
+    items[i++] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
 
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
+    {"Presets",  open_presets_menu },
+    {"Pulse 2",  open_pulse2_menu  },
     {"Controls", open_controls_menu},
     {"Help",     open_help_menu    },
     {NULL,       NULL              },

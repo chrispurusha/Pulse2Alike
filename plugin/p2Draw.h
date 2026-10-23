@@ -83,18 +83,36 @@ typedef struct {
     const char * (*name)(void * user);                            // the sound's name, as shown
     void (*rename)(void * user, const char * name);               // notes §6: an edited name, on commit
     int (*send)(void * user);                                     // notes §8: to the instrument's edit buffer
+    void (*loadPreset)(void * user, int number);                  // notes §4: P001..P500 from the presets file
+    bool (*storePreset)(void * user, int number);                 // the sound as it is now; false if not written
+    int (*preset)(void * user);                                   // the preset the sound came from, 0 none
+    int (*backup)(void * user);                                   // notes §11: a tP2HardwareResult
+    void (*cancelBackup)(void * user);
 } tP2PatchHost;
 
 void p2_draw_set_host(const tP2PatchHost * host); // static storage
 void p2_draw_set_user(void * user);
-void p2_draw_set_patch(const char * path);        // what is loaded now, for the name and for Prev/Next; no '/' = a title
+void p2_draw_set_patch(const char * path);        // the file loaded now, for the label; no '/' = a title
+void p2_draw_set_preset(int number, bool edited); // notes §4: shown as P012, P012* once edited; 0 none
 
 void p2_draw_open_patch(void);
-void p2_draw_load_number(int number);
+void p2_draw_store_preset(int number);            // 0: back to the preset it came from; both confirm first
+void p2_draw_revert_preset(void);
+int p2_draw_preset(void);
+void p2_draw_backup(void);                        // notes §11: Backup Pulse 2 to Presets, after a confirm
+void p2_draw_cancel_backup(void);
+bool p2_draw_backing_up(void);
+void p2_draw_set_backup(bool running, int asked, int found);
+void p2_draw_backup_done(int found, bool stored); // found 0: cancelled
+void p2_draw_load_preset_browser(void);           // notes §4: SynthLib's bank browser, as the siblings pick a slot
+void p2_draw_store_preset_browser(void);
+void p2_draw_import_presets(bool folder);         // notes §10: all 500, after a confirm
+void p2_draw_export_presets(bool folder);
 bool p2_draw_has_patch_file(void);
 void p2_draw_save_patch(bool chooseFile);         // false: over the current file, after a confirm
 void p2_draw_init_patch(void);
 void p2_draw_send_to_hardware(void);
+void p2_draw_set_link_busy(bool busy);       // notes §8: Link on, the instrument another instance's
 void p2_draw_hardware_problem(int result);   // a tP2HardwareResult that is not eP2HardwareSent
 double p2_draw_value(uint32_t paramId);
 void p2_draw_edit(uint32_t paramId, double normalized);

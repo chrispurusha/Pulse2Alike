@@ -26,3 +26,8 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Arp sounds to other sounds by program change: no note carried over or stuck (long Step Duration and Swing especially); OFF→arp with keys held hands them to the arp; HOLD→OFF→HOLD resumes the kept chord only with Anomalies on
 - Controls > Rotary / Vertical / Horizontal: each drags as named (Rotary follows the angle round the dial with the pointer hidden); the choice and the Pulse 2 channel survive closing Live (~/Library/Application Support/Pulse2Alike/prefs.txt)
 - Fault guard (p2Plugin notes §47): normal playing never logs FAULT in /tmp/pulse2alike.log; if Hiss (or anything) breaks the sound again, it should come back by itself within a block
+- Presets in a real host (Live): a new instance plays P001; Prev/Next wrap; P012* after an edit, Revert, Store, Store to... (bank browser); a program change plays the preset; a reopened project keeps its sound and shows its number
+- Presets > Import Presets from Folder with iCloud Drive/Patches/Pulse2: all 407, then the rest INIT
+- Two instances, one with Link on: the second's Link reads "Link busy" until the first's is turned off, then takes over
+- Pulse 2 > Backup Pulse 2 to Presets inside Live (checked through vst3host only) and Cancel Backup part-way
+- P004 by ear against the instrument after the mod-amount table (p2Plugin notes §51): osc 2 should no longer go flat above C4; other sounds with large mod amounts (127) are now a little deeper

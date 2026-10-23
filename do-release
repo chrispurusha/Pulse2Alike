@@ -158,11 +158,11 @@ before the host sees it.
 
 SOUNDS
 
-The plug-in reads Pulse 2 sound dumps (.syx, one sound each). Its File menu opens and saves them;
-program changes (bank select CC 32, then program change) pick the sound numbered as the instrument
-numbers them, from the folder:
-
-    iCloud Drive/Patches/Pulse2     (files named "NNN Name.syx", NNN = 001-500)
+The plug-in keeps 500 presets, P001-P500, as the instrument does; program changes (bank select CC 32,
+then program change) play them. They start as INIT. To fill them: Presets > Import Presets from Folder
+(a folder of "NNN Name.syx" sound dumps) or from File (a .syx of dumps), or, with a Pulse 2 on USB,
+Pulse 2 > Backup Pulse 2 to Presets. Single sounds are .syx files, through the File menu. The plug-in's
+Help menu says more.
 
 LICENCE
 

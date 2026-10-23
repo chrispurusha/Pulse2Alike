@@ -101,7 +101,7 @@ measured.
 M-ACCU, M-PRODUCT, M-DELAY, M-SMOOTH, M-MIN and M-MAX are mod targets (25-30) whose results are sources (17-22).
 The slots run in order, so a slot sees what earlier slots fed in this tick.
 - **M-ACCU, M-PRODUCT, M-MIN, M-MAX:** the sum, product, lowest and highest of their inputs, where an input is
-  source × (amount − 64)·|amount − 64| / 4096, clipped to ±1.
+  source × ±weight(|amount − 64|) / 256 (§51), clipped to ±1.
 - **M-DELAY:** a slot writes its source, inverted for amounts below 64, |amount − 64| × 16 ms ahead into a
   1024 ms line; the output is what arrives now.
 - **M-SMOOTH:** a lag on the slot's source, moving (k + k²/256)/2048 of the way per millisecond, k = |amount − 64|.
@@ -122,10 +122,10 @@ Bank select (CC 32) and program change pick a sound as the instrument does, as m
 min(program, 99) + 1). Bank 1 program 0 is P101, programs 99 and 100 are both P100, and bank 2 program 5 is P206.
 A program change to the sound already loaded (by program change, or by opening its library file) is ignored, so
 an edited sound is not thrown away by a host re-sending the same program.
-Every `.syx` in `iCloud Drive/Patches/Pulse2` is read once when the plug-in starts (`p2_patch_cache_load`, about
-68 KB). A program change only copies a cached sound, on the audio thread with no file access, then tells the
-host of each parameter it changed. Program and Bank are hidden and never saved, so reopening a project restores
-its sound as edited rather than reloading the program.
+The presets are read once per process into a cache (p2Patch notes §2, §6). A program change only copies a cached
+sound, on the audio thread with no file access, then tells the host of each parameter it changed. Program and Bank
+are hidden and never saved, so reopening a project restores its sound as edited rather than reloading the program
+(the preset number it came from is saved, §48).
 
 ## 21. Unison
 Measured (findings, "unison"): UNISON and UNIAPW are eight pulse (or APW) oscillators at osc 1's width, spread
@@ -301,8 +301,7 @@ thread) compares every sound parameter with what the instrument was last given. 
 takes by CC goes as that CC, on the Pulse 2 MIDI Channel setting - the value is the parameter's sound byte, as the
 measurement rig sends it; a change to one without (the mod matrix, LFOs, bend range, arp steps), or more than 8 at
 once (a new sound), sends the whole sound as one edit-buffer dump, at most every 0.1 s. Switching Link on sends the
-sound. A sound from a numbered file - "NNN Name.syx" in any folder, a copy on the Desktop too - (Load, Prev/Next,
-by number, a program change) is also sent as its bank select
+sound. A sound from a preset (Load Preset, Prev/Next, a program change) is also sent as its bank select
 (CC 32) and program change, so the instrument's display shows the same number; the dump follows 0.4 s later, once
 the instrument has loaded that program, and carries any edits. A failed send switches Link off and says why. File > Send Sound to Pulse 2 sends it once. Both paths checked
 on the instrument (the dump read back byte for byte; a cutoff CC read back).
@@ -372,3 +371,44 @@ output frame is checked: a value that is not finite, or more than 24 dB over ful
 and the signal path's state (filter, drive, couplings, noise and hiss band limits, decimator history) is put back
 to rest so the sound recovers by itself. The first fault per instance logs that state, to say which part went
 bad; later ones only count. Enable the log with `touch /tmp/pulse2alike-log`, read `/tmp/pulse2alike.log`.
+
+## 48. Presets
+The sound remembers the preset it came from (0 for none: a file, or Init), and the panel shows it as P012 - P012*,
+in white, once any byte the sound would store differs from the preset's (its address and checksum aside). Loading
+a preset (by number, Prev/Next, Revert) goes through the host like loading a file (§16); a program change does the
+same from the audio thread, from the cache (§20), and the panel takes the preset's dump as the base a save keeps.
+Store writes the sound as it is now into a preset, through p2Patch's write-through (p2Patch notes §6).
+A new instance loads P001, whichever comes first of its first audio block and its editor's first frame (a host
+need not process before playback), exactly once (an atomic exchange). A restored project does not - its state
+carries its own sound - and an offline render plays what it is given. The project state is `P2S2` (2026-10-23):
+`P2S1` plus the preset number, so a reopened project shows its number; a `P2S1` state still loads, with none.
+Another process's store is noticed within a second: the editor's frame looks at the file's time once a second.
+
+## 49. One instance owns the instrument
+Everything that talks to the Pulse 2 goes through the instance holding its lock (p2Hardware notes §3; design §7.7).
+Link takes it while on and gives it back when off. Link on while another instance holds it leaves Link on but
+idle: the panel's button reads "Link busy" in amber, and the instance takes over - sending its whole sound - as
+soon as the lock is free, without the Link setting being changed behind the host's back. A one-off Send takes the
+lock only while it sends, and is refused with a message if another instance has it. Destroying an instance gives
+the lock back (closing its descriptor), as does its host quitting or crashing.
+
+## 50. Backup Pulse 2 to Presets
+The instance takes the lock for the whole run (or keeps Link's), starts p2Hardware's backup thread, and polls it
+from the editor's frame: progress to the panel, and when it finishes, the 500 dumps stored at once
+(`p2_presets_store_all`). Link sends nothing while it runs and sends the whole sound afterwards. Cancelling stores
+nothing. Destroying the instance mid-run cancels the thread and waits for it. Checked on the instrument through
+vst3host (2026-10-23): 407 sounds read in under a minute, identical byte for byte to the library, 93 slots INIT.
+
+## 51. What a mod amount weighs
+Measured on the instrument (2026-10-23, findings "mod amounts"): every amount 1-63 above 64, through MOD 8 into
+OSC2 PITCH, and 16 of them through MOD 5 into M-ACCU, which gave the same weights. An amount scales its source by
+weight(|amount − 64|)/256, sign from the side of 64, and `kModWeight` is that weight as measured. It is close to
+(d/4)², which is what the code used before, but not equal: 1/8 at d 1 doubling to 1 at d 4, runs that rise by a
+constant step between, and 256 - full scale - at amount 127, where (63/4)² gives 248. Amounts 0 (d −64) and 127
+weigh the same; the negative side mirrors the positive (−16 and −32 measured). Both uses keep their units: an input
+to the math destinations is source × weight/256 (so full scale is 1), a target gets source × weight × 16 / 32 in
+its own units (so full scale on a pitch target is 128 semitones per unit of source). A fractional amount (MOD1
+AMOUNT moving slot 1's) is interpolated between entries.
+At the old law P004's osc 2, which gets the key back through PITCH FLW -> M-ACCU (109) -> M-DELAY -> OSC2 PITCH
+(127), tracked 0.958 semitone per key - half a semitone flat per octave; the instrument tracks exactly 1, which is
+weight 128 at d 45 x 256 at d 63 x 2 semitones per key at full scale.

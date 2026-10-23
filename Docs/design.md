@@ -117,8 +117,8 @@ instrument sends every panel edit, so a session can log where the panel is.
 - Pulse 2 L/R → Fireface inputs 7/8 (indices 6, 7).
 - Captures go to `/Volumes/ext-ssd/Captures/Pulse2/` (the external SSD; every project's captures live there).
 - MIDI over USB, port "Pulse2", **channel 12** (status `9B`/`8B`, CCs `BB`).
-- Tools: G2-Edit's `tools/capture` (`--device Fireface --channels 6,7`), `tools/tone`
-  (`--channels 5`), `filter_response.py`, `harmonics.py`. The method follows G2-Edit's
+- Tools: G2Alike's `tools/capture` (`--device Fireface --channels 6,7`), `tools/tone`
+  (`--channels 5`), `filter_response.py`, `harmonics.py`. The method follows G2Alike's
   `Docs/analogue-filter-capture-design.md`, the Voyager filter, which hit the same nonlinearity and drift
   problems.
 
@@ -142,7 +142,8 @@ averaged phase-locked.
 3. Cutoff law from self-oscillation, then the filter's small-signal response per mode, then its drive.
 4. Envelopes and LFOs (digital: find their laws), then the mod matrix.
 
-## 7. Presets (design, 2026-10-23 - nothing built yet)
+## 7. Presets (design 2026-10-23; built the same day except Store Sound to Slot and Restore, which write the
+instrument's flash and wait for CT's go-ahead. Slots are chosen in SynthLib's bank browser, as in the siblings)
 
 Program changes recall sounds from **one presets file**, as the instrument recalls them from its own memory,
 in place of today's folder of `NNN Name.syx` files (p2Patch notes §2). Single `.syx` files stay for loading and

@@ -26,12 +26,27 @@ typedef enum {
     eP2HardwareSent,
     eP2HardwareNotFound,   // no MIDI destination with "Pulse" in its name
     eP2HardwareNoMidi,     // CoreMIDI refused the client, the port or the send
+    eP2HardwareBusy,       // notes §3: another instance owns the instrument
 } tP2HardwareResult;
+
+// notes §3: one instance on the machine owns the instrument - an exclusive flock() on hardware.lock, released by
+// the system if the owner goes. *lock is the instance's descriptor, -1 when it holds nothing
+bool p2_hardware_claim(int * lock);
+void p2_hardware_release(int * lock);
 
 // Any message, to the instrument
 tP2HardwareResult p2_hardware_send(const uint8_t * data, uint32_t length);
 
 // Readdresses the dump to the edit buffer (7F 00), fixes its checksum and sends it; never writes a slot
 tP2HardwareResult p2_hardware_send_to_edit_buffer(uint8_t dump[P2_DUMP_LENGTH]);
+
+// notes §4: Backup - every sound read from the instrument, one request at a time on a thread of its own. Only
+// requests are sent: nothing on the instrument changes. The caller holds the lock throughout
+tP2HardwareResult p2_hardware_backup_start(void);
+bool p2_hardware_backup_poll(int * asked, int * found);                     // true once finished (or cancelled)
+void p2_hardware_backup_cancel(void);
+int p2_hardware_backup_take(uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]); // after the poll says finished:
+                                                                            // the sounds read, INIT elsewhere
+                                                                            // (0 if cancelled)
 
 #endif // __P2_HARDWARE_H__

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # The capture rig for the Pulse 2 (design §5): MIDI over USB through tools/midisend, audio through
-# G2-Edit's tools/capture. Import it, or run it to put the test sound into the edit buffer.
+# G2Alike's tools/capture. Import it, or run it to put the test sound into the edit buffer.
 import os, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MIDISEND = os.path.join(HERE, 'midisend')
-CAPTURE = os.path.join(HERE, '..', '..', 'G2-Edit', 'tools', 'capture')
+CAPTURE = os.path.join(HERE, '..', '..', 'G2Alike', 'tools', 'capture')
 PORT = 'Pulse2'
 CHANNEL = 12                     # the instrument's, 1-indexed
 IN_CHANNELS = '6,7'              # Fireface inputs 7/8 = Pulse 2 L/R

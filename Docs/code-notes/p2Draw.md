@@ -22,15 +22,16 @@ frame and every press, from the page table alone, so a page needs no coordinates
 open in columns of 8 rows (the 32 modulation targets as 4 columns), so a long list fits under a control in
 the lower row instead of scrolling.
 
-## 4. Patches: Prev, Next, Load...
-As SynthEdit does it. `< Prev` and `Next >` walk the `.syx` files of the current patch's folder in name order,
-which for the instrument's backup is slot order (`NNN Name.syx`). `Load...` opens SynthLib's in-window file
-browser there. With no patch loaded yet, the folder is `iCloud Drive/Patches/Pulse2`, where `tools/p2dump` writes
-the backup. The browser is modal and drawn last. While it is open, every press, release, hover and scroll is
-its own: press and release map to its mouse-down and click.
+## 4. Presets: Prev, Next, the label
+`< Prev` and `Next >` step through P001-P500 and wrap at both ends, as the instrument's own buttons do; from a sound
+with no preset (a file, Init) Next goes to P001 and Prev to P500. `Load...` opens SynthLib's in-window file browser
+for a single `.syx`, starting in the current file's folder or `iCloud Drive/Patches/Pulse2`. The browser is modal
+and drawn last; while it is open every press, release, hover and scroll is its own.
 
-The patch name is only what the panel was last told. A host project reopened later shows "(no patch loaded)",
-though every parameter is restored. The sound is in the parameters, not in the file.
+After the name: the preset (`P012`, grey; `P012*`, white, once edited - p2Plugin notes §48), or the file's name
+when the sound came from a file. Load Preset... and Store Preset to... choose the slot in SynthLib's bank browser,
+as SynthEdit and G2Alike choose a bank location: 500 named rows as banks 1-5 of 100, sortable A-Z. A store is
+always confirmed, naming what the slot holds now; so is Revert.
 
 ## 5. Menus and popups
 The menu bar (p2Menu.c) sits across the top of the panel; everything else is 20 units lower. Menus, the file
@@ -52,7 +53,8 @@ an edit changes only the bits it shows.
 
 ## 8. Link
 The Link HW button, left of Prev, shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
-plug-in's, through the host's `send`; the panel only reports a failure.
+plug-in's, through the host's `send`; the panel only reports a failure. Amber, reading "Link busy", while Link is on
+but another instance owns the instrument (p2Plugin notes §49).
 
 ## 9. Rotary drag
 Controls offers Rotary, Vertical and Horizontal, as the sibling editors do. Vertical and Horizontal hide the
@@ -60,3 +62,13 @@ pointer and count its movement; Rotary keeps it visible and free, as the sibling
 the pointer's angle about its centre (SynthLib's `calculate_mouse_angle()` / `angle_to_value()`, the 270 degree
 sweep the siblings use). The panel view asks at each grab which kind of drag it is (its `keepsPointer`, SynthLib
 synthlibPanelView notes §12).
+
+## 10. Import and export
+Presets > Import from File/Folder reads the sounds (p2Patch notes §7) and asks before replacing all 500, saying how
+many it found and that the rest become INIT; nothing is written unless confirmed. Export writes the 500 as they
+are, and reports only a failure.
+
+## 11. Backup progress
+Pulse 2 > Backup Pulse 2 to Presets... asks first (all 500 replaced; nothing on the instrument changes), then shows
+SynthEdit's "Backing Up Bank" box over the panel: the sound being asked for, how many have answered, a bar. The
+menu offers Cancel Backup while it runs. The end says how many were read and how many are INIT.

@@ -3,7 +3,7 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- P004: osc 2 flat against the instrument going up from C4 (C4 about right, C5 flat). Osc 2 Keytrack is OFF (held at note 60, notes §31) and gets the key back through PITCH FLW -> M-ACCU (109) -> M-DELAY (78) -> OSC2 PITCH (127), so suspect that chain's scaling (notes §18, laws not yet captured); measure osc 2 alone on the instrument at C4/C5/C6
+- Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
 - Help: instructions in the Help menu (only About today) and in the release's Read Me First; update the install instructions (README has only Building)
 - Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
 - Transpose on the GLOBAL page: +-24 semitones, as the instrument's
