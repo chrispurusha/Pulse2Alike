@@ -5,7 +5,7 @@ rule, `render_dial()` for continuous controls, and `draw_button()` for lists, wh
 hosted by SynthLib's `synthlibPanelView`, as MidiSyncTool's and GenBridge's panels are.
 
 ## 1. Dragging a dial
-As SynthEdit and G2 Alike do it. A press on a dial grabs it, and SynthLib's panel view hides the pointer and
+As SynthEdit and G2Alike do it. A press on a dial grabs it, and SynthLib's panel view hides the pointer and
 holds it still. The raw movement turns the dial, at `dial_drag_pixels_for_full_range()` per full range, which
 is SynthLib's shared policy, so Shift drags slowly. On release the pointer reappears where it was. The value
 runs unrounded while it moves, so a continuous parameter (cutoff, resonance) moves smoothly.
@@ -34,7 +34,7 @@ though every parameter is restored. The sound is in the parameters, not in the f
 
 ## 5. Menus and popups
 The menu bar (p2Menu.c) sits across the top of the panel; everything else is 20 units lower. Menus, the file
-browser and the dialogues all go through SynthLib's synthlibPopups, as in G2 Alike's editor: a press is offered
+browser and the dialogues all go through SynthLib's synthlibPopups, as in G2Alike's editor: a press is offered
 to them front to back first, and a press anywhere else while a menu is open only closes it. A menu item is chosen
 on the RELEASE (contextMenu acts on mouse-up), which is why p2_draw_release returns an edit: a list control's
 value menu is chosen there too. Keys come from SynthLib's panel view once a click has given it the keyboard.

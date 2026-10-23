@@ -141,3 +141,72 @@ averaged phase-locked.
 2. Oscillator captures (§5.1); fit the wave shapes into `p2Dco.c`.
 3. Cutoff law from self-oscillation, then the filter's small-signal response per mode, then its drive.
 4. Envelopes and LFOs (digital: find their laws), then the mod matrix.
+
+## 7. Presets (design, 2026-10-23 - nothing built yet)
+
+Program changes recall sounds from **one presets file**, as the instrument recalls them from its own memory,
+in place of today's folder of `NNN Name.syx` files (p2Patch notes §2). Single `.syx` files stay for loading and
+saving one sound.
+
+**7.1 The file.** `presets.syx` beside `prefs.txt` in `~/Library/Application Support/Pulse2Alike/`: 500 sound
+dumps back to back, each 137 bytes (p2Patch notes §1) and addressed to its own slot, so P*n* starts at byte
+(*n* − 1) × 137 and the whole file is 68,500 bytes. It is a valid multi-message `.syx` by itself, which is
+also what an export of it is. No file: every slot holds INIT, as an empty slot on the instrument does.
+
+**7.2 The cache.** The file is read once into today's per-slot seqlock cache (p2Patch notes §5); a program
+change reads only the cache. A store is write-through: the slot's 137 bytes are rewritten in place in the
+file and the slot in the cache. Instances in one process share the cache; another process sees a store when
+the file's modification time has changed, checked on the main thread when a menu opens and on Prev/Next.
+
+**7.3 Recall.** A new instance starts on P001. Prev/Next step through P001-P500 and wrap at both ends, as the
+instrument's own buttons do. A project reopened in a host keeps the sound it saved, edits and all, and shows
+the preset it came from. The panel marks a sound edited since its recall or store (`P012*`).
+
+**7.4 Reading the instrument.** The plug-in needs its own CoreMIDI input from the `Pulse2` port: a host hands
+a plug-in its track's MIDI, not the instrument's replies. Each slot is requested in turn as `tools/p2dump`
+does; a slot that does not answer within the timeout is empty and takes INIT (P407-P499 never answer: findings,
+2026-10-17).
+
+**7.5 Writing the instrument.** A dump addressed to a slot is a flash write (p2Hardware notes §2), so a restore
+first reads each slot back (§7.4) and writes only those that differ: flash wear is spent only on real changes.
+Dumps are paced so the instrument finishes each write before the next arrives. A whole restore asks first.
+
+**7.6 Menus.** Wording follows G2Alike's "Store ... to Bank" / "Backup ... Bank" / "Restore ... Bank".
+
+*File* - single sounds, as now: Open Patch..., Save Patch, Save Patch As..., Init Patch...
+
+*Presets* - the presets file:
+- Load Preset ▸ P001-P100 ... P401-P500 (today's Load Patch by Number, with names)
+- Store Preset (back to the slot it came from)
+- Store Preset to... (choose the slot; the confirmation names what it replaces)
+- Revert to Stored Preset
+- Export Presets to File... / Import Presets from File... (all 500; import asks first)
+- Export Presets to Folder... / Import Presets from Folder... (`NNN Name.syx` files - the existing library's
+  format, which is how that library comes in)
+
+*Pulse 2* - the instrument:
+- Send Sound to Pulse 2 (edit buffer, as now)
+- Store Sound to Pulse 2 Slot... (one flash write)
+- Backup Pulse 2 to Presets (all 500 into the presets file)
+- Restore Presets to Pulse 2... (§7.5)
+
+Reload Patch Library and the folder-walking Prev/Next (p2Draw notes §4) go.
+
+**7.7 One instance owns the instrument.** Everything that talks to the Pulse 2 - Link (p2Plugin notes §41), Send
+Sound, Store Sound to Slot, Backup and Restore - goes through whichever instance owns it, and only one does on
+the machine, across hosts as well as within one. Ownership is an exclusive `flock()` on `hardware.lock` beside
+`prefs.txt`: it covers other processes and other instances in the same one (each opens the file itself), and the
+system releases it when the owner turns Link off, is removed, or its host quits or crashes, so it can never be
+left held.
+- Link on takes the lock. If another instance holds it, Link stays on but idle and the panel says the Pulse 2 is
+  in use elsewhere; it takes over, and sends its sound, as soon as the lock is free (tried on the editor frame,
+  as Link already runs). A reopened project with Link saved on therefore never fights another for the
+  instrument, and the parameter is not changed behind the host's back.
+- A one-off action (Send Sound, Store Sound to Slot, Backup, Restore) from an instance without Link takes the
+  lock for its duration if it is free, and otherwise says the Pulse 2 is in use and does nothing.
+- Backup and Restore hold it throughout, so Link's own sends, even from the same instance, wait until they finish.
+- The MIDI input of §7.4 belongs to the owner alone, so a reply reaches only the instance that asked.
+
+**7.8 Order of work.** The file and the cache (§7.1-7.2), Load/Store/Revert and Prev/Next, import/export, the
+hardware lock (§7.7) under today's Link and Send Sound, then the MIDI input and the two hardware passes, Backup
+first.

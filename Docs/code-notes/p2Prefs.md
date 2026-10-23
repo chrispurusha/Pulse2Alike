@@ -1,7 +1,7 @@
 # p2Prefs.c - notes
 
 ## 1. The settings file
-`~/Library/Application Support/Pulse2Alike/prefs.txt`, SynthLib's prefs, as G2 Alike's `g2Prefs.c` keeps its own.
+`~/Library/Application Support/Pulse2Alike/prefs.txt`, SynthLib's prefs, as G2Alike's `g2Prefs.c` keeps its own.
 It holds what belongs to the user and the rig rather than to a project: the drag direction (`dialMode`, Controls
 menu; vertical unless horizontal was chosen) and the Pulse 2's MIDI channel (`pulse2Channel`, p2Plugin notes §46).
 Read once per process when the first instance is created; each change is written when it is made.
