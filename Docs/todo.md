@@ -3,23 +3,23 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
-- Help: instructions in the Help menu (only About today) and in the release's Read Me First; update the install instructions (README has only Building)
-- Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
-- Transpose on the GLOBAL page: +-24 semitones, as the instrument's
-- Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 - tools/do-filtercheck fails "LP24 c64 r96 bass loss at 40 Hz" (-13.67 dB, wants -9.1): the target is the compressed -30 dBFS take; the -45 dBFS retake (k 4.01) gives ~-14.0 - confirm from the captures and update it
 - Hiss ON once broke the engine live; OFF fixed it, ON again was fine. Not reproduced offline (3,663 renders, Hiss switched during notes, 2026-10-23); a fault guard now recovers and logs the state (p2Plugin notes §47) - if it happens again, send /tmp/pulse2alike.log (touch /tmp/pulse2alike-log first)
-- P010: brighter on the plug-in (CT, listening)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
 - P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched; P001/P014 at note 48 do not brighten again after the filter envelope decays as the instrument does (~18 dB over half a second)
 - P005: sustain 6-7 dB dark
+- P010: brighter on the plug-in (CT, listening)
 - P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
 - P011: compare at a fixed phase - its slow LFO (sTRI, 24 s period) runs free on the instrument, so no take starts where the plug-in does
 - P013 -2 dB / P014 +2 dB in level
-- P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take
+- P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take-
+- Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
+- Help: instructions in the Help menu (only About today) and in the release's Read Me First; update the install instructions (README has only Building)
+- Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
+- Transpose on the GLOBAL page: +-24 semitones, as the instrument's
+- Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 
 ## Drive
 In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound better, not perfect):
