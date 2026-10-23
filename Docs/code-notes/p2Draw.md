@@ -73,3 +73,11 @@ are, and reports only a failure.
 Pulse 2 > Backup Pulse 2 to Presets... asks first (all 500 replaced; nothing on the instrument changes), then shows
 SynthEdit's "Backing Up Bank" box over the panel: the sound being asked for, how many have answered, a bar. The
 menu offers Cancel Backup while it runs. The end says how many were read and how many are INIT.
+
+## 12. The opening click's release
+A menu item is chosen on the release (§5), and SynthLib moves a menu up when it would run off the bottom of the
+panel. A list on the bottom row (OSC 3's Shape and Routing) then opened its menu under the pointer, and the release
+of the very click that opened it chose the item there: the menu flashed up and went (CT, 2026-10-23). So the
+release that ends the opening press is ignored when the pointer has not moved more than 4 units; the menu stays open
+for a click of its own. Dragging from the control into the menu and letting go still chooses, as before.
+

@@ -93,6 +93,14 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define MIX_SLEW_PER_SECOND        (15000.0) // notes §40: the filter input's slew, fitted to saws
 #define MIX_COUPLING_HZ            (5.0)     // notes §37: the mix reaches the filter AC-coupled
 #define OSC3_TO_LEVEL2             (1.0)     // per unit of osc 3 at full level - notes §25
+#define LEVEL2_MEASURED            (1)       // notes §52: 1 the measured law; 0 the linear one it replaced
+#define LEVEL2_RISE                (46.4)    // notes §52: per unit of osc 3, rising, at full depth
+#define LEVEL2_FALL                (86.2)    //   and falling
+#define LEVEL2_ZERO                (-4.2)    //   depth = ((level - LEVEL2_ZERO) / (127 - LEVEL2_ZERO))^LEVEL2_POWER
+#define LEVEL2_POWER               (3.42)
+#define LEVEL2_COUPLING_S          (0.0080)  //   the path's AC coupling, a time constant
+#define LEVEL2_LAG_S               (0.0003)  //   and its low-pass
+#define LEVEL2_CEILING             (3.0)     //   osc 2's level can rise no higher
 #define OSC3_COUPLING_HZ           (14.0)
 #define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
 #define FAULT_LEVEL                (16.0)    // notes §47: 24 dB over full scale, far past any sound
@@ -211,6 +219,8 @@ typedef struct {
     double       mixCoupled;          // notes §37
     double       filterCoupled;
     double       osc3Coupled;         // notes §25: the coupling capacitor on osc 3\'s control path
+    double       level2Coupled;       // notes §52: osc 3 on LEVEL2, its own coupling
+    double       level2Lag;
     uint32_t     voiceClock;          // allocation order, for stealing the most recent
 
     uint8_t      notes[NOTE_STACK_SIZE];
@@ -535,7 +545,7 @@ static void recover_signal_path(tP2Plugin * p, double acc) {
     memset(p->noiseLp, 0, sizeof(p->noiseLp));
     memset(p->hissLp, 0, sizeof(p->hissLp));
     memset(p->oscEvenDc, 0, sizeof(p->oscEvenDc));
-    p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->driveOut = 0.0;
+    p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->level2Coupled = p->level2Lag = p->driveOut = 0.0;
     p->feedCoupled = p->vcaCoupled = p->noiseColour = 0.0;
 }
 
@@ -1121,6 +1131,9 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     int32_t        shape3    = plain_int(p, kP2ParamOsc3Shape);
     bool           feedback  = shape3 == 4;
     double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
+    double         coupling2 = 1.0 - exp(-1.0 / (LEVEL2_COUPLING_S * p->sampleRate * p->oversample));
+    double         lag2      = 1.0 - exp(-1.0 / (LEVEL2_LAG_S * p->sampleRate * p->oversample));
+    double         depth2    = pow(fmax(0.0, fmin(127.0, plain(p, kP2ParamOsc3Level) + p->mod[eModOsc3Level]) - LEVEL2_ZERO) / (127.0 - LEVEL2_ZERO), LEVEL2_POWER);
     int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
     double         mixHp     = 1.0 - exp(-2.0 * M_PI * MIX_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
@@ -1222,7 +1235,16 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             } else if (routing == 0) {
                 osc += osc_stage(p, 2, osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0), evenHp);
             } else if (routing == 1) {
-                amp2 = fmax(0.0, level2 + (level3 * cv3 * OSC3_TO_LEVEL2));
+                // notes §52: osc 3 inverted and AC coupled, then osc 2's level times (1 + depth x it), floored
+                double l2 = -osc3 - p->level2Coupled;
+
+                p->level2Coupled += coupling2 * l2;
+                p->level2Lag     += lag2 * (l2 - p->level2Lag);
+                double k2 = (p->level2Lag >= 0.0) ? LEVEL2_RISE : LEVEL2_FALL;
+
+                amp2              = LEVEL2_MEASURED
+                                    ? fmin(LEVEL2_CEILING, fmax(0.0, level2 * (1.0 + (k2 * depth2 * p->level2Lag))))
+                                    : fmax(0.0, level2 + (level3 * cv3 * OSC3_TO_LEVEL2));
             } else if (routing == 2) {
                 p2_filter_set(&p->filter, fmin(127.0, fmax(0.0, p->cutoffNow + (level3 * cv3 * OSC3_TO_CUTOFF_STEPS))),
                               fmin(127.0, fmax(0.0, p->resonance + p->mod[eModResonance])), (tP2FilterMode)plain_int(p, kP2ParamFilterType));

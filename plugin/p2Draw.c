@@ -75,6 +75,7 @@
 #define MENU_MAX                  (32)
 #define MENU_CELL_W               (96.0)
 #define MENU_ROWS_PER_COLUMN      (8)
+#define OPENING_RELEASE_SLOP      (4.0)   // notes §12: how far the pointer may move and still be the opening click
 
 typedef struct {
     const tP2Control * control;
@@ -116,6 +117,8 @@ static const tP2PatchHost * gHost;
 static void *               gUser;
 static char                 gPatchPath[1024];
 static int                  gPreset;
+static bool                 gOpeningClick;   // notes §12: the press that opened a menu, until its release
+static tCoord               gOpeningAt;
 static bool                 gLinkBusy;
 static bool                 gBackupRunning;
 static int                  gBackupAsked, gBackupFound;
@@ -806,6 +809,10 @@ static bool step_press(double x, double y, tP2Edit * edit) {
             gStepMenuStep     = i;
             gStepMenuField    = f;
             open_context_menu(below_rect(gStepCell[i][f]), gMenuItems, 1, 0.0);
+            gOpeningClick     = true;
+            gOpeningAt        = (tCoord){
+                x, y
+            };
             return true;
         }
     }
@@ -1118,6 +1125,10 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
 
     if (pc->control->kind == eP2ControlChoice) {
         open_value_menu(pc);
+        gOpeningClick = true;
+        gOpeningAt    = (tCoord){
+            x, y
+        };
         return true;
     }
     gGrabbed   = pc->control;
@@ -1160,6 +1171,16 @@ void p2_draw_release(double x, double y, tP2Edit * edit) {
     edit->paramId = UINT32_MAX;
     gGrabbed      = NULL;
     gMenuChoice   = -1;
+
+    // notes §12: the release of the click that opened a menu is not a choice, even where the menu was moved up
+    // to fit and so opened under the pointer
+    if (gOpeningClick) {
+        gOpeningClick = false;
+
+        if (gContextMenu.active && (fabs(x - gOpeningAt.x) <= OPENING_RELEASE_SLOP) && (fabs(y - gOpeningAt.y) <= OPENING_RELEASE_SLOP)) {
+            return;
+        }
+    }
 
     if (synthlib_popups_dispatch_click((tCoord){x, y}, mouseButtonLeftUp) && (gMenuChoice >= 0) && (gMenuFor != NULL)) {
         edit->paramId             = gMenuFor->paramId;

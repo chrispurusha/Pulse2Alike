@@ -866,3 +866,20 @@ cutoff against the self-oscillation itself, and the small-signal pole sits about
 frequency (2026-10-17, beta 1.063). So this wants the cutoff law, the resonance curve and the saturation refitted
 together, with the oscillation landing on the law - not a drive added on top. Filter left as it was.
 
+## 2026-10-23 - LEVEL2 (`192k/level2/`, `192k/iso/hw_006_l2o3*`)
+
+CT: P006 is wrong mostly through osc 3 on LEVEL2 (MIX is close), sync on or off. P006 with osc 1 and noise off,
+filter open, sync off, osc 2 at +12 (523 Hz at C4), osc 3 at -36 (33 Hz), osc 3 level 0/15/30/58/90/127; osc 2's
+amplitude per cycle, folded over osc 3's period, relative to osc 3 at 0:
+- level 15: 0.86-1.47; 30: 0.22-2.24; 58, 90, 127: down to silence (0.01-0.03) for part of the cycle, up to
+  2.41/2.52/2.65. The engine: 0.97-1.02, 0.85-1.07, 0.54-1.14, 0.15-1.25, 0.03-1.41.
+- The fall along osc 3's ramp is straight in decibels: exponential. Fitted (log units, rms 0.49): depth 11.25
+  nepers and centre shift -4.25 per unit of the level law, osc 3's saw falling; ceiling set so the engine peaks at
+  2.57 x (the instrument 2.65) - p2Plugin notes §52.
+- At level 15 a jump in osc 3 decays back to a floor within ~20 ms: the path looks AC coupled, faster than the
+  engine's 14 Hz - not yet modelled.
+- P006 itself (sync on, osc 3 at its level 58): the old law left holes in osc 2's spectrum (C4's 3rd and 7th
+  harmonics at -34/-39 dB against the instrument's -4/-15); the new one fills them, but the instrument's harmonics
+  stay strong to the 10th (spikier) and change pattern between C3 and C4, the engine's do not.
+- Of the first 15, P006 (saw, level 58) and P015 (square, level 127) use LEVEL2.
+

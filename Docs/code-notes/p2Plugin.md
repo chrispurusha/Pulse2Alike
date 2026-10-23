@@ -424,3 +424,13 @@ AMOUNT moving slot 1's) is interpolated between entries.
 At the old law P004's osc 2, which gets the key back through PITCH FLW -> M-ACCU (109) -> M-DELAY -> OSC2 PITCH
 (127), tracked 0.958 semitone per key - half a semitone flat per octave; the instrument tracks exactly 1, which is
 weight 128 at d 45 x 256 at d 63 x 2 semitones per key at full scale.
+
+## 52. LEVEL2: AC coupled, linear, deep
+Osc 3 routed to LEVEL2 sets osc 2's level as level2 x (1 + K x depth x c), floored at 0 and capped at LEVEL2_CEILING:
+c is osc 3 inverted, AC coupled (8.0 ms) and lagged (0.3 ms); depth = ((level - LEVEL2_ZERO)/(127 - LEVEL2_ZERO))^3.42;
+K 46.4 while c rises, 86.2 while it falls. Fitted 2026-10-23 to steps (osc 3 a 16 Hz square, osc 2 at 2 kHz) at
+osc 3 levels 12-58, rms 0.09 (findings, "LEVEL2"). A first fit as an exponential, the same day, read the coupling's
+decay as a curve and was replaced. `LEVEL2_MEASURED` 0 restores the old linear law (§25).
+Open: in those 2 kHz takes the engine's filter-input slew (§40) and loop saturation compress loud osc 2 harder than
+the instrument (its peak 1.73 x where the engine without them follows the fit) - an engine issue, small at P006's
+low notes.
