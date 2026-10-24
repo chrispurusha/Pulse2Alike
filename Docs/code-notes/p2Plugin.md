@@ -475,3 +475,18 @@ and ENVA RATES move that envelope's Attack, Decay and Release together (not Sust
 UNISON DET moves Unison Detune (§21), PARA FADE 1/2 the Osc 1/2 Env A Fade dials, ARP SWING the swing (14-114).
 Checked on library sounds that use the rates (findings 2026-10-24): P031's release harmonics 6.1 -> 0.8 dB rms,
 P057's attack 14 -> 9 and release bands 5.6 -> 1.9, P061's release bands 7.7 -> 5.5. CV OUT has nothing to drive.
+
+## 55. The drive's output gate
+With a drive curve on (TUBE, FUZZ or FX, at any Drive), the instrument's output follows how much could be coming
+through: G = clamp((L x C - 8) / 16, 0, 1), multiplying envelope x volume inside the VCA curve (as pan does, §53).
+L is the largest of the osc 1/2/3 Levels (with mods; osc 2/3 not in unison or PARA), twice the Noise level, and
+16 x (Resonance - 100) clamped to 0-128; C how open the filter is - LP24/LP12 (cutoff - 4)/32, HP12 (118 - cutoff)/32,
+BP12 1, each clamped to 0-1, with L's resonance term /256 added, where cutoff is the whole sum the filter gets
+(envelope, keytrack, velocity, mods). G rises at once and falls with a 32 ms time constant. So a quiet oscillator,
+or a closing filter, shuts the drive down - P003, a FUZZ pluck, falls to the instrument's floor within 0.5 s
+(-21/-35/-57/-60/-75 dB every 0.1 s; the engine -20/-31/-58/-73/-80), where it had held a FUZZ sustain 37 dB over it.
+Measured (findings 2026-10-24): the level sweep's quiet osc levels (output level rms over 85 takes 8.6 -> 4.3 dB; FUZZ
+within 1 dB from Level 16), and a saw at Level 30 through LP12 with the cutoff stepped (FUZZ - NONE at cutoff
+16/20/24: -30.0/-12.2/-0.5 dB on the instrument, -29.1/-12.2/-2.2 in the engine) - which set the LP threshold at 4,
+not the 6 the structure alone gives. HP12's threshold is unmeasured. It replaced the fitted quiet-input loss of
+p2Drive notes §5: through BP12 (the gate open) the drive's output does not fall with a quieter input (p2Drive §7).

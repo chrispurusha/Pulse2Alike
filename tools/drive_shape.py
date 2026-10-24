@@ -4,7 +4,9 @@
 # note and Drive. Stage "shape" fits the curve on inputs above the quiet-input knee with that loss off; stage "loss"
 # then fits the loss's knee, slope and trim per Drive to every level, with the shape held. p2Drive notes §6.
 # The EXT IN sines at 100 Hz-3 kHz (192k/drive/) are fitted too; stage "sines" lists them beside the old shape.
-# usage: drive_shape.py <curve 1=TUBE 2=FUZZ> [shape|loss|score|sines] [shape.json]
+# Stage "gated" (2026-10-24) fits the shape over EVERY level with the loss off and the output gate (p2Plugin notes
+# §55) applied as each take's known gain - the gate, not a loss in the curve, is what quietens quiet inputs.
+# usage: drive_shape.py <curve 1=TUBE 2=FUZZ> [shape|loss|score|sines|gated] [shape.json]
 import ctypes, json, os, subprocess, sys, tempfile
 
 import numpy as np
@@ -92,6 +94,7 @@ def load(curve):
                 pre = int(PRE_S * rate)
                 takes.append((d, db(rms_window(x, rate, at)), note, x[at - pre:at + b],
                               harmonics(h[ah + a:ah + b], rate, f0), f0, rate, pre + a, pre + b))
+                GATE_DB[id(takes[-1][3])] = 20 * np.log10(min(1.0, max(1e-6, (level - 8.0) / 16.0)))
     return takes
 
 
@@ -126,9 +129,14 @@ def shape_at(shape, biases, d):
     return s
 
 
+GATE_DB = {}   # per take: the output gate's gain at the take's osc Level, when stage "gated" applies it
+APPLY_GATE = [False]
+
+
 def model_harmonics(t, shape, gain_db, loss):
     d, _, _, span, _, f0, rate, a, b = t
-    return harmonics(run(span, rate, shape, 10 ** (gain_db / 20), loss)[a:b], rate, f0)
+    g = GATE_DB.get(id(span), 0.0) if APPLY_GATE[0] else 0.0
+    return harmonics(run(span, rate, shape, 10 ** (gain_db / 20), loss)[a:b], rate, f0) + g
 
 
 def residual(t, mh):
@@ -222,6 +230,41 @@ def main():
     if stage == 'score':
         state = json.load(open(saved))
         report('saved fit', score(takes, state['shape'], state['gains'], state['loss'], state.get('bias')))
+        return
+
+    if stage == 'gated':
+        APPLY_GATE[0] = True
+        static = takes + load_sines(curve)
+        state = json.load(open(saved)) if os.path.exists(saved) else None
+        if state is not None:
+            base, gains = list(state['shape']), list(state['gains'])
+        off = [[0.0, 0.0, 0.0]] * len(DRIVES)
+        report('before (the shape as fitted, gate on, loss off)', score(static, base, gains, off))
+        lo = [0.005, 0.005, -0.5, 1.0, 0.0, 20.0, 0.5, 0.5] + [-20.0] * len(DRIVES)
+        hi = [0.5, 0.5, 0.5, 3000.0, 1.0, 20000.0, 30.0, 30.0] + [60.0] * len(DRIVES)
+        symmetric = curve == 2
+        n = len(DRIVES)
+
+        def unpack(p):
+            q = list(p)
+            if symmetric:
+                q.insert(7, q[6])
+            return q[:8], q[8:8 + n]
+
+        def f(p):
+            shape, g = unpack(p)
+            return np.concatenate([residual(t, model_harmonics(t, shape, g[DRIVES.index(t[0])], [0.0, 0.0, 0.0])) for t in static])
+        start = list(base) + list(gains)
+        lo2, hi2 = list(lo), list(hi)
+        start = [min(max(v, l + 1e-6), h - 1e-6) for v, l, h in zip(start, lo2, hi2)]
+        if symmetric:
+            del start[7], lo2[7], hi2[7]
+        fit = least_squares(f, start, bounds=(lo2, hi2), x_scale='jac', diff_step=1e-3, max_nfev=300)
+        shape, gains = unpack(fit.x)
+        report('after (gated)', score(static, shape, gains, off))
+        out = saved.replace('.json', '_gated.json')
+        json.dump({'shape': shape, 'gains': gains, 'loss': off, 'bias': None}, open(out, 'w'))
+        print('shape', np.round(shape, 4).tolist(), '\ngains', np.round(gains, 2).tolist(), '\nsaved', out)
         return
 
     if stage == 'shape':

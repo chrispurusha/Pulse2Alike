@@ -178,6 +178,9 @@ enum {
 #define HISS_AFTER_FILTER        (2.03e-4)
 #define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
 #define PULSE_LEVEL              (0.525)    // notes §30: a pulse against the saw, measured
+#define DRIVE_GATE               (1)        // notes §55 (PROTOTYPE switch)
+#define DRIVE_GATE_FALL_S        (0.032)
+#define DRIVE_GATE_LP_FROM       (4.0)      // notes §55: the cutoff the low-passes' gate opens from, measured
 #define XPWM_SWING               (1.11)     // notes §8: X1/X3-PWM swing against osc 2's own pulse, measured
 #define LFO_SLOW_SHAPES_FROM     (5)        // sSIN on: free-running, never restarted by a note
 
@@ -255,6 +258,7 @@ typedef struct {
     double       vcaTarget;            // what the last tick asked for
     double       vca;                  // smoothed, applied to the audio
     double       pan[2], panTarget[2]; // notes §53: each side against the centre's VCA gain
+    double       driveGate;            // notes §55
     double       cutoffTarget;
     double       cutoffNow;            // the cutoff the filter is set to, smoothed
 
@@ -615,6 +619,32 @@ static void glide_step(tP2Plugin * p, double dt) {
 }
 
 // notes §10: one control tick - the envelopes advanced by dt, and the targets the audio then glides to
+// notes §55: with a drive curve on, the output follows how much could be coming through - the loudest source's
+// Level, the resonance near oscillation, and how far the filter is open - rising at once, falling over 32 ms
+static void drive_gate(tP2Plugin * p, double dt) {
+    double target = 1.0;
+
+    if (plain_int(p, kP2ParamDriveCurve) != 0) {
+        bool   fewer   = (unison_mode(p) != 0) || (para_voices(p) > 0);
+        double dial1   = fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc1Level) + p->mod[eModOsc1Level]));
+        double dial2   = fewer ? 0.0 : fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc2Level) + p->mod[eModOsc2Level]));
+        double dial3   = fewer ? 0.0 : fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc3Level) + p->mod[eModOsc3Level]));
+        double noise   = 2.0 * fmin(127.0, fmax(0.0, plain(p, kP2ParamNoiseLevel) + p->mod[eModNoiseLevel]));
+        double res     = fmin(128.0, fmax(0.0, 16.0 * (p->resonance + p->mod[eModResonance] - 100.0)));
+        double loudest = fmax(fmax(fmax(dial1, dial2), fmax(dial3, noise)), res);
+        int    type    = plain_int(p, kP2ParamFilterType);
+        double open    = 1.0;
+
+        if (type <= 1) {
+            open = fmin(1.0, fmax(0.0, (res / 256.0) + ((p->cutoffTarget - DRIVE_GATE_LP_FROM) / 32.0)));
+        } else if (type == 3) {
+            open = fmin(1.0, fmax(0.0, (res / 256.0) + ((118.0 - p->cutoffTarget) / 32.0)));
+        }
+        target = fmin(1.0, fmax(0.0, ((loudest * open) - 8.0) / 16.0));
+    }
+    p->driveGate = (target > p->driveGate) ? target : (p->driveGate + ((target - p->driveGate) * (1.0 - exp(-dt / DRIVE_GATE_FALL_S))));
+}
+
 static void control_tick(tP2Plugin * p, double dt) {
     double envF       = p2_env_step(&p->filterEnv, dt, rate_dial(p, kP2ParamEnvFAttack, eModEnvFRates), rate_dial(p, kP2ParamEnvFDecay, eModEnvFRates),
                                     plain(p, kP2ParamEnvFSustain), rate_dial(p, kP2ParamEnvFRelease, eModEnvFRates), (tP2EnvLoop)plain_int(p, kP2ParamEnvFLoop));
@@ -729,7 +759,7 @@ static void control_tick(tP2Plugin * p, double dt) {
     // notes §15: one VCA curve, of envelope × the volume velocity has moved
     double volume = plain(p, kP2ParamVolume) + (p->velocity * 127.0 * (plain(p, kP2ParamAmpVelocity) - 64.0) / 64.0) + p->mod[eModVolume];
 
-    double vcaIn  = envA * fmin(127.0, fmax(0.0, volume)) / 127.0;
+    double vcaIn  = envA * fmin(127.0, fmax(0.0, volume)) / 127.0 * (DRIVE_GATE ? p->driveGate : 1.0);
 
     p->vcaTarget    = p2_vca_gain(vcaIn);
     // notes §53: each side's VCA sees envelope x volume x sqrt(its share); a panning mod moves Pan half as far, the other way
@@ -744,6 +774,7 @@ static void control_tick(tP2Plugin * p, double dt) {
                       + p->mod[eModCutoff]
                       + (((plain(p, kP2ParamFilterKeytrack) - 64.0) / 32.0) * (note - KEYTRACK_REFERENCE_NOTE));
     p->cutoffTarget = fmin(127.0, fmax(0.0, p->cutoffTarget));   // the instrument stops at its range's ends too
+    drive_gate(p, dt);
 }
 
 static bool anomalies_on(const tP2Plugin * p) {
@@ -921,6 +952,7 @@ static void p2_reset(void * inst) {
     memset(p->sustained, 0, sizeof(p->sustained));
     p->vca           = p->vcaTarget = 0.0;
     p->pan[0]        = p->pan[1] = p->panTarget[0] = p->panTarget[1] = 1.0;
+    p->driveGate     = 1.0;
     p->cutoffNow     = p->cutoffTarget = p->cutoff;
     p2_filter_reset(&p->filter);
     memset(p->history, 0, sizeof(p->history));

@@ -28,6 +28,7 @@
 #define LEVEL_ATTACK_S               (0.003)   // notes §5: the input level's meter, quick up, slow down
 #define LEVEL_RELEASE_S              (0.060)
 #define LEVEL_METER_OVER_RMS_DB      (3.15)    // what that meter reads over a steady triangle's RMS
+#define QUIET_LOSS                   (0)       // notes §7: the quiet-input loss is the output gate (PROTOTYPE switch)
 
 typedef struct {
     double positive, negative;   // the clipper's ceilings
@@ -84,7 +85,7 @@ static double ceiling_db(tP2Drive * d, const tCurveShape * c, double drive, doub
     d->inPower += ((power > d->inPower) ? d->inAttack : d->inRelease) * (power - d->inPower);
     double levelDb = (10.0 * log10(fmax(d->inPower, 1e-20))) - LEVEL_METER_OVER_RMS_DB;
 
-    return at_drive(c->trimDb, drive) - (at_drive(c->slope, drive) * fmax(0.0, at_drive(c->kneeDb, drive) - levelDb));
+    return at_drive(c->trimDb, drive) - (QUIET_LOSS * at_drive(c->slope, drive) * fmax(0.0, at_drive(c->kneeDb, drive) - levelDb));
 }
 
 // notes §6: a knee from round (hardness 1) to square (large); tanh where no hardness was fitted

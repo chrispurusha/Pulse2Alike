@@ -106,3 +106,10 @@ bias and the coupling loop undoing it - 0.8 dB better on paper, nothing physical
 superseded by these; their measurements stand.
 Fit files: `drive_shape.py <curve> shape`, then `loss`, then `sines` to compare with the old shape; the result is
 written to $TMPDIR/p2_drive_shape_<curve>.json and copied into the tables by hand (Drive 96 interpolated).
+
+## 7. The quiet-input loss was the output gate (2026-10-24)
+§5's falling ceilings imitated an output gate that follows the oscillators' Level dials and the filter's opening
+(p2Plugin notes §55), not the signal: through BP12 at Level 127 (the gate open), stepping the cutoff away from the
+note to drop the drive's input from -28 to -45 dBFS, the instrument's TUBE stayed +1.3 to +0.2 dB and FUZZ +1.0 to
++3.8 dB against NONE - no loss, FUZZ if anything compressing upward. So §5's slope is off (`QUIET_LOSS`) and each
+Drive's trim stays. That is also why §5's loss seemed to depend on pitch: it followed the dial, not the input.
