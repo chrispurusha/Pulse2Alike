@@ -51,7 +51,8 @@ In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound be
 - The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
 
 ## Engine
-- Mod matrix: per-target depth at full scale - the amount law itself is measured (p2Plugin notes §51) and the full-scale depth on pitch (128 semitones per unit) and M-ACCU (1); the other targets' full-scale depths are provisional
+- Library sweep leftovers (findings 2026-10-24): P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher), P017 PARA-8 with the D-D loop (14), P102 UNISON-P at Detune 0 (10: the voices' phases?), P052 X3 attack (9)
+- Mod matrix: every target takes the modulation in its own dial steps (p2Plugin notes §51, §54); checked on cutoff, pitch, pan and the envelope rates - spot-check osc levels, volume, LFO 1 speed, PW, resonance against captures
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs
 - Capture to confirm: SNG2/RET2 restart from zero, RET3's exception, FNON/FOFF glide, LFO 2's delay (a wait before it starts?)
 - Osc 3's LEVEL2 / VCF / DRIVE depths and FB (depths are guesses beyond LEVEL2 at 8 Hz)

@@ -1020,3 +1020,38 @@ engine's matched to the instrument's by circular correlation as is and inverted:
   against the sync, not its sign.
 - P001-P015: 64.3 -> 60.9; P006 5.70 -> 2.44 (its release harmonics 11.6 -> 2.3 dB rms, envelope 5.2 -> 0.7),
   P005 and P015 better, P014 (APW with other sources) 3.6 -> 4.1.
+
+## 2026-10-24 - library sweep: pan, unison and paraphonic modes (`192k/library/`, `192k/pan/`, `192k/unison_key/`)
+
+Twenty library sounds chosen for features P001-P015 do not use (patch_validate, one note 48). The worst, P038 LFO
+LEAD (harmonics 26-38 dB rms), came from three gaps:
+- **Osc 2 and osc 3 played in unison.** The manual: with a unison shape "you cannot use OSC 2 and OSC 3" (PARA-8 the
+  same, PARA-4 osc 3). The instrument's P038 had none of osc 2's and 3's saws at 130.8 Hz; the engine had them 12 dB
+  over the cluster.
+- **Osc 1's Keytrack OFF held the cluster at note 60.** In unison it follows the key; Keytrack changes nothing
+  measurable (UNISON-M, Detune 42: spread 47.5/47.1 cents at notes 36/72, on or off; the engine 47.7/47.1).
+- **The cluster's level takes osc 3's taper** (its mixer input), ~2.4 dB louder at Level 53 than osc 1's.
+- **Pan was not built.** Measured: against centre +5.1/+4.2/+3.1/+1.7 dB at Pan 0/16/32/48 on the near side and
+  -2.4/-6.2/-14.0/-49.5 at 80/96/112/127 on the far side (both outputs mirror within 0.2 dB): the VCA curve of
+  envelope x volume x sqrt(2 x share). A PANNING mod: half the depth, the other way (P014).
+After: P038 4-9 dB, P018 1-3, P029 bands 13 -> 4-7, P113 13 -> 4. Still off: P051 (amp envelope RET2) 12-15,
+P017 (PARA-8, D-D loop) 14, P102 (UNISON-P at Detune 0) 10, P105/P083 (arpeggiated, one note does not show it).
+P001-P015: 60.9 -> 60.5.
+
+## 2026-10-24 - the mod targets that did nothing
+
+ENVF RATES, ENVA RATES, UNISON DET, PARA FADE 1/2 and ARP SWING were not wired. A target is its dial plus the
+modulation in the dial's own steps, as cutoff and pitch measured (p2Plugin notes §51); the rates move Attack, Decay
+and Release together. Library sounds using the rates (patch_validate, with against without): P031 release harmonics
+6.1 -> 0.8 dB rms, P057 attack 14.1 -> 9.3 and release bands 5.6 -> 1.9, P061 release bands 7.7 -> 5.5; P021, P096
+unchanged.
+
+## 2026-10-24 - LFO speed below 16 (`192k/lfo_slow/`, `tools/lfo_slow_session.py`)
+
+P051's slow panning sweep (LFO 1 TRI, speed 9) ran twice as fast as the instrument's. LFO 1's TRI on osc 1's pitch,
+the pitch tracked over 14 s: periods 3.1 s at speed 14, 7.5 s at 9, ~21 s at 4 (one peak at 5 s, still falling at
+14 s), ~2 minutes at 0 - against 2.6, 3.5, 4.6 and 5.9 s from the 12-steps-an-octave law, which holds from 16 up
+(speed 20: 1.84 s, 10-17). Below 16: 4 steps an octave down to speed 5 (0.0679 Hz), then linear to 0.008 Hz at speed
+0 (p2Lfo notes §6). 73 library sounds use an LFO speed under 16. P051's level envelope 19.0 -> 2.9 dB; its harmonics
+(osc 2 synced 29 semitones over osc 3, LFO 2 on osc 2's pitch) stay 16 dB off - the instrument's energy sits at the
+master's 8th-9th harmonics, the engine's at the 5th-6th.

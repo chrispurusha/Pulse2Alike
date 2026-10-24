@@ -127,6 +127,10 @@ enum {
     eModGlideRate,
     eModEnvFRates,
     eModEnvARates,
+    eModUnisonDetune,
+    eModParaFade1,
+    eModParaFade2,
+    eModArpSwing,
     MOD_TARGETS      = 32,
     eModVcfEnvAmount = 31
 };
@@ -247,11 +251,12 @@ typedef struct {
     double       mod[MOD_TARGETS];                    // what the mod matrix adds to each target, at the last tick
     tP2Env       ampEnv;
     tP2Env       filterEnv;
-    int          tickCountdown;   // host samples to the next control tick
-    double       vcaTarget;       // what the last tick asked for
-    double       vca;             // smoothed, applied to the audio
+    int          tickCountdown;        // host samples to the next control tick
+    double       vcaTarget;            // what the last tick asked for
+    double       vca;                  // smoothed, applied to the audio
+    double       pan[2], panTarget[2]; // notes §53: each side against the centre's VCA gain
     double       cutoffTarget;
-    double       cutoffNow;       // the cutoff the filter is set to, smoothed
+    double       cutoffNow;            // the cutoff the filter is set to, smoothed
 
     tP2Filter    filter;
     double       cutoff;     // gliding towards the parameter, in steps
@@ -322,7 +327,7 @@ static int32_t osc_pitch(const tP2Plugin * p, double note, uint32_t semiId, uint
     uint32_t keyId = (semiId == kP2ParamOsc1Semitone) ? kP2ParamOsc1Keytrack : ((semiId == kP2ParamOsc2Semitone) ? kP2ParamOsc2Keytrack : UINT32_MAX);
 
     // notes §31: Keytrack OFF holds the oscillator at note 60, its offsets and modulation still applied
-    if ((keyId != UINT32_MAX) && (plain_int(p, keyId) == 0) && (plain_int(p, kP2ParamOsc1Shape) < SHAPE_PARA8)) {
+    if ((keyId != UINT32_MAX) && (plain_int(p, keyId) == 0) && (plain_int(p, kP2ParamOsc1Shape) < 4)) {   // not in unison or para
         note = KEYTRACK_OFF_NOTE;
     }
     return p2_pitch_from_midi_note(note + plain(p, semiId) + mod) + ((plain_int(p, detuneId) - 64) * DETUNE_PITCH_PER_STEP);
@@ -360,7 +365,7 @@ static void set_unison(tP2Plugin * p) {
     int    mode  = unison_mode(p);
     int    notes = ((mode == 2) || (mode == 4)) ? ((p->noteCount < UNISON_OSCS) ? p->noteCount : UNISON_OSCS) : 1;
     double rate  = p->sampleRate * p->oversample;
-    double step  = plain(p, kP2ParamUnisonDetune) * UNISON_SPACING;
+    double step  = fmin(127.0, fmax(0.0, plain(p, kP2ParamUnisonDetune) + p->mod[eModUnisonDetune])) * UNISON_SPACING;   // notes §21
 
     if ((mode == 0) || (p->noteCount == 0)) {
         return;
@@ -381,7 +386,8 @@ static void set_unison(tP2Plugin * p) {
 
 // notes §26: the per-sample multiplier of a released voice - a release stage, shortened by Fade
 static double voice_fade_out(const tP2Plugin * p, uint32_t fadeParam) {
-    double value   = plain(p, kP2ParamEnvARelease) - FADE_RELEASE_OFFSET - (FADE_RELEASE_SLOPE * (127.0 - plain(p, fadeParam)));
+    double fade    = fmin(127.0, fmax(0.0, plain(p, fadeParam) + p->mod[(fadeParam == kP2ParamOsc1Fade) ? eModParaFade1 : eModParaFade2]));
+    double value   = plain(p, kP2ParamEnvARelease) - FADE_RELEASE_OFFSET - (FADE_RELEASE_SLOPE * (127.0 - fade));
     double seconds = (value <= 0.0) ? 0.0 : p2_env_decay_seconds(value);   // to -40 dB
 
     return (seconds <= 0.0) ? 0.0 : exp(-log(100.0) / (seconds * p->sampleRate * p->oversample));
@@ -439,6 +445,11 @@ static void para_note_off(tP2Plugin * p, int note) {
             p->voice[i].held = false;
         }
     }
+}
+
+// notes §54: ENVF RATES / ENVA RATES move that envelope's Attack, Decay and Release dials (not Sustain)
+static double rate_dial(const tP2Plugin * p, uint32_t id, int target) {
+    return fmin(127.0, fmax(0.0, plain(p, id) + p->mod[target]));
 }
 
 static double level_gain(const tP2Plugin * p, uint32_t id) {
@@ -605,10 +616,10 @@ static void glide_step(tP2Plugin * p, double dt) {
 
 // notes §10: one control tick - the envelopes advanced by dt, and the targets the audio then glides to
 static void control_tick(tP2Plugin * p, double dt) {
-    double envF       = p2_env_step(&p->filterEnv, dt, plain(p, kP2ParamEnvFAttack), plain(p, kP2ParamEnvFDecay),
-                                    plain(p, kP2ParamEnvFSustain), plain(p, kP2ParamEnvFRelease), (tP2EnvLoop)plain_int(p, kP2ParamEnvFLoop));
-    double envA       = p2_env_step(&p->ampEnv, dt, plain(p, kP2ParamEnvAAttack), plain(p, kP2ParamEnvADecay),
-                                    plain(p, kP2ParamEnvASustain), plain(p, kP2ParamEnvARelease), (tP2EnvLoop)plain_int(p, kP2ParamEnvALoop));
+    double envF       = p2_env_step(&p->filterEnv, dt, rate_dial(p, kP2ParamEnvFAttack, eModEnvFRates), rate_dial(p, kP2ParamEnvFDecay, eModEnvFRates),
+                                    plain(p, kP2ParamEnvFSustain), rate_dial(p, kP2ParamEnvFRelease, eModEnvFRates), (tP2EnvLoop)plain_int(p, kP2ParamEnvFLoop));
+    double envA       = p2_env_step(&p->ampEnv, dt, rate_dial(p, kP2ParamEnvAAttack, eModEnvARates), rate_dial(p, kP2ParamEnvADecay, eModEnvARates),
+                                    plain(p, kP2ParamEnvASustain), rate_dial(p, kP2ParamEnvARelease, eModEnvARates), (tP2EnvLoop)plain_int(p, kP2ParamEnvALoop));
     double note       = (p->noteCount > 0) ? (double)p->notes[p->noteCount - 1] : p->lastNote;
 
     glide_step(p, dt);
@@ -718,7 +729,14 @@ static void control_tick(tP2Plugin * p, double dt) {
     // notes §15: one VCA curve, of envelope × the volume velocity has moved
     double volume = plain(p, kP2ParamVolume) + (p->velocity * 127.0 * (plain(p, kP2ParamAmpVelocity) - 64.0) / 64.0) + p->mod[eModVolume];
 
-    p->vcaTarget    = p2_vca_gain(envA * fmin(127.0, fmax(0.0, volume)) / 127.0);
+    double vcaIn  = envA * fmin(127.0, fmax(0.0, volume)) / 127.0;
+
+    p->vcaTarget    = p2_vca_gain(vcaIn);
+    // notes §53: each side's VCA sees envelope x volume x sqrt(its share); a panning mod moves Pan half as far, the other way
+    double right  = fmin(1.0, fmax(0.0, (plain(p, kP2ParamPan) - (0.5 * p->mod[eModPanning])) / 128.0));
+
+    p->panTarget[0] = (p->vcaTarget > 0.0) ? (p2_vca_gain(vcaIn * sqrt(2.0 * (1.0 - right))) / p->vcaTarget) : 1.0;
+    p->panTarget[1] = (p->vcaTarget > 0.0) ? (p2_vca_gain(vcaIn * sqrt(2.0 * right)) / p->vcaTarget) : 1.0;
     // notes §29: velocity deepens the filter envelope; it is not an offset of its own
     p->cutoffTarget = p->cutoff
                       + (envF * (((plain(p, kP2ParamFilterEnvAmount) - 64.0 + p->mod[eModVcfEnvAmount]) * ENV_CUTOFF_PER_UNIT)
@@ -902,6 +920,7 @@ static void p2_reset(void * inst) {
     p->arpActiveSeen = plain_int(p, kP2ParamArpActive);
     memset(p->sustained, 0, sizeof(p->sustained));
     p->vca           = p->vcaTarget = 0.0;
+    p->pan[0]        = p->pan[1] = p->panTarget[0] = p->panTarget[1] = 1.0;
     p->cutoffNow     = p->cutoffTarget = p->cutoff;
     p2_filter_reset(&p->filter);
     memset(p->history, 0, sizeof(p->history));
@@ -1002,7 +1021,7 @@ static void arp_settings(const tP2Plugin * p, tP2ArpSettings * s) {
     s->octaves  = plain_int(p, kP2ParamArpRange) + 1;
     s->clock    = plain_int(p, kP2ParamArpClock);
     s->duration = plain_int(p, kP2ParamArpStep);
-    s->swing    = (plain(p, kP2ParamArpSwing) - 14.0) / 100.0;   // measured: the first of a pair's share
+    s->swing    = (fmin(114.0, fmax(14.0, plain(p, kP2ParamArpSwing) + p->mod[eModArpSwing])) - 14.0) / 100.0;   // measured: the first of a pair's share
     s->delay    = (plain(p, kP2ParamArpDelay) - 64.0) / 100.0;
     s->length   = plain_int(p, kP2ParamArpLength) + 1;
     s->quirks   = anomalies_on(p);
@@ -1111,6 +1130,13 @@ static void level_targets(tP2Plugin * p) {
     int32_t shape3 = plain_int(p, kP2ParamOsc3Shape);
 
     p->levelTarget[0] = level_gain(p, kP2ParamOsc1Level);
+
+    // notes §8: in the unison and paraphonic modes osc 1's Level drives osc 3's mixer input, so osc 3's taper
+    if ((unison_mode(p) != 0) || (para_voices(p) > 0)) {
+        double cc = fmin(127.0, plain(p, kP2ParamOsc1Level) + p->mod[eModOsc1Level]);
+
+        p->levelTarget[0] = (cc <= LEVEL_SILENT_BELOW) ? 0.0 : pow((cc - LEVEL_SILENT_BELOW) / (127.0 - LEVEL_SILENT_BELOW), OSC3_LEVEL_EXPONENT);
+    }
     p->levelTarget[1] = level_gain(p, kP2ParamOsc2Level);
     p->levelTarget[2] = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0;   // EXT: no input in the plug-in yet
     p->levelTarget[3] = level_gain(p, kP2ParamNoiseLevel);
@@ -1159,7 +1185,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     double         hiss      = (plain_int(p, kP2ParamHiss) != 0) ? sqrt(rateIn / NOISE_REFERENCE_RATE) : 0.0;
     int            voices    = para_voices(p);
     bool           unison    = unison_mode(p) != 0;
-    double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL;   // notes §12
+    bool           osc3Off   = unison || (voices > 0);                                // notes §8: the unison and paraphonic modes take osc 3 (and 2) over
+    double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL; // notes §12
     double         fadeStep  = 1.0 / (PARA_FADE_SECONDS * p->sampleRate * p->oversample);
     // notes §26: a released voice fades only while other keys hold the amp envelope; with every key up, the
     // envelope's own release is the release
@@ -1214,6 +1241,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
         double level1 = p->levelNow[0], level2 = p->levelNow[1], level3 = p->levelNow[2];
         double noise = noiseRate * p->levelNow[3];
         p->vca       += (p->vcaTarget - p->vca) * smooth;
+        p->pan[0]    += (p->panTarget[0] - p->pan[0]) * smooth;
+        p->pan[1]    += (p->panTarget[1] - p->pan[1]) * smooth;
         p->cutoffNow += (p->cutoffTarget - p->cutoffNow) * smooth;
         update_filter(p);
 
@@ -1242,7 +1271,9 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             p->osc3Coupled    += coupling * cv3;
             double amp2    = level2;
 
-            if (feedback) {
+            if (osc3Off) {
+                // osc 3 is not there to sound or route
+            } else if (feedback) {
                 // notes §25: subtracted, as on the instrument; the seed is the noise floor a loop starts from
                 sources -= level3 * OSC3_FB_GAIN * p->driveOut;
             } else if (routing == 0) {
@@ -1270,7 +1301,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                     sum += p2_dco_next(&p->unison[u]);
                 }
 
-                osc += (mix1 * level1 * UNISON_VOICE_GAIN * sum) + (mix2 * amp2 * gate2 * p2_dco_next(&p->dco[1]));
+                osc += mix1 * level1 * UNISON_VOICE_GAIN * sum;   // notes §8: osc 2 is not there in unison
+                p2_dco_next(&p->dco[1]);
 
                 if (shape2 == SHAPE_X1PWM) {
                     p2_dco_next(&p->dco[0]);          // osc 1's timer still runs for X1-PWM's gate
@@ -1323,7 +1355,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 filtered += band_limit(band_limit(HISS_AFTER_FILTER * hiss * white_noise(p), noiseLp, &p->hissLp[4]), noiseLp, &p->hissLp[6]);
             }
             p->driveOut               = p2_drive_process(&p->drive, (tP2DriveCurve)curve,
-                                                         drive + ((routing == 3) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);
+                                                         drive + ((!osc3Off && (routing == 3)) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);
             double vcaLeak  = (VCA_FEEDTHROUGH * p->vca) - p->vcaCoupled;  // notes §43
 
             p->vcaCoupled            += vcaHp * vcaLeak;
@@ -1351,7 +1383,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
         for (uint32_t ch = 0; ch < numOut; ch++) {
             if ((out != NULL) && (out[ch] != NULL)) {
-                out[ch][i] = sample;
+                out[ch][i] = (numOut >= 2) && (ch < 2) ? (float)(sample * p->pan[ch]) : sample;
             }
         }
     }

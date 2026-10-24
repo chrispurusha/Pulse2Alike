@@ -41,3 +41,7 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - X1-PWM / X3-PWM library sounds (P032, P034, P036, P049, P052, P053, P055) against the instrument
 - Sync by ear with osc 2 above osc 3 (+7, +12, +19): ramps and pulses per cycle as the instrument's
 - Oversampling now defaults to 2x: an existing Live project keeps its saved setting
+- Pan (2026-10-24): the Pan dial and PANNING mods move the sound between the outputs as the instrument's; centred sounds unchanged
+- Unison and PARA sounds (P018, P038, P102, P105, P120; P017, P029, P113): osc 2/3 now silent in those modes, as the manual says
+- Slow LFOs (speed under 16): a sweep at speed 9 takes ~7 s, at 4 ~21 s, at 0 ~2 minutes, as the instrument's
+- Mod targets newly wired: ENVF/ENVA RATES (P031, P057, P061), UNISON DET (P242), PARA FADE, ARP SWING

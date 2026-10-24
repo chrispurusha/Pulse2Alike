@@ -43,6 +43,14 @@ matters - X3-PWM sounds with osc 3 at 0 - and at width 0 X3-PWM is osc 3's squar
 pulse. The square's sign is set so that osc 3 audible at level 127 partly cancels the XOR's component at osc 3's
 pitch, as on the instrument (that line 7 dB down there; the opposite sign raised it 12 dB).
 
+In the unison and paraphonic modes osc 2 and osc 3 are not there (the manual: "you cannot use OSC 2 and OSC 3";
+PARA-4 keeps osc 2's level for each voice's second pulse): osc 3's audio, FB loop and LEVEL2/VCF/DRIVE routings
+are off, and osc 2 is silent in unison and PARA-8. The voices reach the mixer through osc 3's input, so osc 1's Level
+takes osc 3's taper there (§36; the voices' gains were measured at full level, where the two agree). Osc 1's Keytrack
+does not hold the pitch in these modes: a unison cluster at Keytrack OFF follows the key, its spread the same (47
+cents at Unison Detune 42, notes 36 and 72, on or off - findings 2026-10-24). P038 went from 26-38 dB rms on its
+harmonics to 4-9, P018 from 7 to 1-3.
+
 ## 9. Pitch offsets and levels, as measured
 Semitone and detune are offsets to the pitch before the period law, detune 2/256 of a semitone per step, which
 is why it inherits the law's mid-semitone error exactly as the captures show. The level law,
@@ -452,3 +460,18 @@ decay as a curve and was replaced. `LEVEL2_MEASURED` 0 restores the old linear l
 Open: in those 2 kHz takes the engine's filter-input slew (§40) and loop saturation compress loud osc 2 harder than
 the instrument (its peak 1.73 x where the engine without them follows the fit) - an engine issue, small at P006's
 low notes.
+
+## 53. Pan
+The instrument's VCA runs per side on envelope x volume x sqrt(that side's share): Pan 0-127 is a share p = Pan/128
+to the right, 1 - p to the left, and each side's gain is the VCA curve (§15) of envelope x volume x sqrt(2 x share)
+- against centre +5.1 dB at the hard side, -6.2 at Pan 96, -14.0 at 112 (measured, `tools/pan_session.py`; the
+engine within 0.5 dB, 1 at 112). The engine keeps one VCA at the centre's gain and scales each output by its side's
+ratio to it, so a centred sound is unchanged. A PANNING mod moves Pan half as far as it would move another target's
+dial, and the other way (P014's level envelope 1.9 -> 0.6 dB with it; the same way round, 5.7).
+
+## 54. The remaining mod targets
+Every target is its dial plus the modulation in that dial's own steps (§51), clamped to the dial's range. ENVF RATES
+and ENVA RATES move that envelope's Attack, Decay and Release together (not Sustain) - a positive mod slows all three;
+UNISON DET moves Unison Detune (§21), PARA FADE 1/2 the Osc 1/2 Env A Fade dials, ARP SWING the swing (14-114).
+Checked on library sounds that use the rates (findings 2026-10-24): P031's release harmonics 6.1 -> 0.8 dB rms,
+P057's attack 14 -> 9 and release bands 5.6 -> 1.9, P061's release bands 7.7 -> 5.5. CV OUT has nothing to drive.

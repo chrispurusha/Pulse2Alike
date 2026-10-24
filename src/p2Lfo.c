@@ -26,8 +26,29 @@
 #define SPEED_PER_OCTAVE    (12.0)
 #define SHAPE_COUNT_FAST    (5)
 
+// notes §6: below speed 16 the rate falls faster - 4 steps an octave, then linear to 125 s at speed 0
+#define SLOW_END_SPEED      (16.0)
+#define HZ_AT_5             (0.06792)
+#define SLOW_PER_OCTAVE     (4.0)
+#define HZ_PER_STEP_LOW     (0.008)
+
 double p2_lfo_hz(double speed) {
-    return HZ_AT_64 * pow(2.0, (speed - 64.0) / SPEED_PER_OCTAVE);
+    if (speed >= SLOW_END_SPEED) {
+        return HZ_AT_64 * pow(2.0, (speed - 64.0) / SPEED_PER_OCTAVE);
+    }
+
+    if (speed >= 5.0) {
+        return HZ_AT_5 * pow(2.0, (speed - 5.0) / SLOW_PER_OCTAVE);
+    }
+
+    if (speed >= 4.5) {
+        return 0.056 + ((speed - 4.5) * 2.0 * (HZ_AT_5 - 0.056));
+    }
+
+    if (speed >= 3.0) {
+        return (HZ_PER_STEP_LOW * 4.0) + ((speed - 3.0) * 2.0 * HZ_PER_STEP_LOW);
+    }
+    return HZ_PER_STEP_LOW * (1.0 + fmax(0.0, speed));
 }
 
 // notes §5: the slow shapes' rate, measured at six speeds and interpolated on a log scale (extended at the ends)

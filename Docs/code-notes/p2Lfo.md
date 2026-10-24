@@ -17,3 +17,10 @@ Not a fixed fraction of the fast law: measured with sTRI on the self-oscillating
 32, 48, 64 and 96 (0.0229, 0.0763, 0.214, 0.610, 1.648, 9.98 Hz), which is 0.11 of the fast law at speed 4,
 0.20 at 32 and 0.24 at 64. Interpolated between the points on a log scale and extended at the ends. The 0.197
 first used held only near speed 32, where it was measured.
+
+## 6. The bottom of the fast shapes' Speed
+Below speed 16 the rate is not the 12-steps-an-octave law: measured with LFO 1's TRI on osc 1's pitch (findings
+2026-10-24), periods 125 s at speed 0 (~2 minutes), 20.8 s at 4, 7.4 s at 9, 3.1 s at 14 - against 5.9, 4.6, 3.5 and
+2.6 s from the law. From 5 to 16 it runs 4 steps an octave from 0.0679 Hz; from 3 to 5 it rises 0.016 Hz a step, and
+from 0 to 3 0.008 Hz a step from 0.008 Hz. At 16 it meets the law (0.430 Hz). P051's slow panning sweep (speed 9)
+had run twice too fast.
