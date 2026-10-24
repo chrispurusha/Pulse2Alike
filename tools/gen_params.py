@@ -95,7 +95,7 @@ add('BendUp','Bend Up','Bend +',0,36,2)
 add('BendDown','Bend Down','Bend -',0,36,2)
 add('Osc1Fade','Osc 1 Env A Fade','Fade 1',0,127,0)
 add('Osc2Fade','Osc 2 Env A Fade','Fade 2',0,127,0)
-add('Oversample','Oversampling','OvrSmp',0,2,2,'list',OVS)
+add('Oversample','Oversampling','OvrSmp',0,2,1,'list',OVS)
 add('Anomalies','Anomalies','Anomalies',0,1,1,'list',OFFON)
 add('Master','Master Volume','Master',0,127,127)
 # notes §5: program change and bank select (CC 32), as the instrument takes them; never saved

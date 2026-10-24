@@ -31,9 +31,17 @@ updated once per host sample. Stepping a whole semitone per CC value, applied in
 2026-10-17). The instrument itself moves its cutoff smoothly between MIDI steps, so a glide is the faithful
 choice as well as the clean one.
 
-## 8. Shapes not built yet
-The shape lists are the instrument's (10 for osc 1, 5 for osc 2), but the DCO plays only PWM, SAW and TRI so
-far, plus APW. Any other entry plays a saw until its mode is built (unison, X1/X3-PWM); PARA-8/4 are voices (§12).
+## 8. Shapes
+The shape lists are the instrument's (10 for osc 1, 5 for osc 2). The DCO plays PWM, SAW, TRI and APW; unison and
+PARA-8/4 are built from several DCOs (§12, §21).
+
+X3-PWM and X1-PWM (2026-10-24, findings): osc 2's pulse multiplied by a band-limited 50 % square (p2Dco notes §9) -
+an XOR of the two, in +-1 terms. X3-PWM's square runs at osc 3's rate, X1-PWM's at half osc 1's: measured from the
+sum and difference lines with the other oscillator 7 semitones up, which track osc 2's width as the product predicts
+(within ~1 dB at widths 20-127). Neither the other oscillator's shape (SQR = TRI, SAW within ~1 dB) nor its level
+matters - X3-PWM sounds with osc 3 at 0 - and at width 0 X3-PWM is osc 3's square. The swing is 1.11 of osc 2's own
+pulse. The square's sign is set so that osc 3 audible at level 127 partly cancels the XOR's component at osc 3's
+pitch, as on the instrument (that line 7 dB down there; the opposite sign raised it 12 dB).
 
 ## 9. Pitch offsets and levels, as measured
 Semitone and detune are offsets to the pitch before the period law, detune 2/256 of a semitone per step, which
@@ -136,8 +144,11 @@ so the eight come out near the measured level, about 5.5 dB below one pulse at f
 as usual alongside.
 
 ## 22. Sync
-OSC3 SYNC>OSC2 makes osc 3 the master of osc 2: osc 3's main edge restarts osc 2, which holds at the end of each
-cycle until then (p2Dco notes §8). Osc 3 runs whether or not its level is up, as on the instrument, where sync
+OSC3 SYNC>OSC2 makes osc 3 the master of osc 2: osc 3's main edge restarts osc 2. Between restarts osc 2 starts a
+new cycle only if that cycle's first edge (a pulse's rise, the saw's half-cycle) comes before osc 3's next edge;
+otherwise it holds (p2Dco notes §8). Measured 2026-10-24 (findings): with osc 2 at +7, +12 and +19 semitones a saw
+plays 1, 2 and 3 ramps per master cycle and a pulse 1, 1 and 3 pulses - the 10-17 "one cycle, then hold" was +7's
+case of this. Osc 3 runs whether or not its level is up, as on the instrument, where sync
 works with osc 3 silent.
 
 ## 23. Saving
@@ -218,7 +229,8 @@ instrument has no equivalent. The accent reads the mod sources as the last contr
 
 ## 33. Oversampling
 The engine (oscillators, filter, drive) runs at 1, 2 or 4 times the host's rate, the Oversampling setting on the
-Global page (default 4), and a 64-tap windowed-sinc decimator brings it back down; at 1 there is none. Changing it
+Global page (default 2 since 2026-10-24: real patches measure no different from 4, and 2 gets nearly all of 4's
+gain on a bright saw or pulse high up and on drive - findings 2026-10-24), and a 64-tap windowed-sinc decimator brings it back down; at 1 there is none. Changing it
 rebuilds the decimator and restarts the filter and drive from rest, so it clicks once. At lower factors the
 filter's top end is held below the oversampled rate's Nyquist, so the brightest cutoffs close in a little.
 
@@ -291,6 +303,12 @@ and its pulse is high for the width law's fraction of the cycle - 25% at PW 90 (
 inverted in the mix, and the DCO hands the pulse over the other way up (p2Dco notes §6) so it comes out right;
 the noise, the FB loop and osc 3's control paths (LEVEL2, VCF, DRIVE - their directions measured) are not
 inverted.
+
+The polarity audit (2026-10-24, findings; `tools/polarity_session.py`, `polarity_sync_session.py`): each source
+alone against the instrument's waveform, the symmetric shapes against sync's restart. Osc 2's pulse and triangle
+are the other way up from osc 1's (its saw is not), and APW was upside down for both (p2Dco notes §7) - fixed. Osc 1
+PWM/SAW/PARA, osc 2 SAW, osc 3 SAW/TRI and X1/X3-PWM were right; EXT IN does not invert on the instrument. Open: osc
+3's square against a synced osc 2 matches neither way (its edges' place against the sync, not its sign).
 
 ## 40. The filter input's slew
 A saw through the open filter darkens with its level on the instrument: at level 127 its 20th harmonic is 1.9 dB and

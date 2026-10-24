@@ -30,6 +30,9 @@ for that fraction, as the instrument's is; the saw comes out of the mix falling 
 instrument's does. Both checked against captures through the same chain (findings, "pulse width").
 
 ## 7. APW
+Played the other way up from `apw()`'s shape: the instrument's APW is inverted against the plain pulse (polarity
+audit, p2Plugin notes §39).
+
 Measured (findings, "APW, corrected"): over a two-cycle period, the first cycle is a plain 50% square whatever the
 width, and the second is high on [½ − w, ½] and [½ + w, 1], w from the PW law. At PW 127 (w = ½) that is an
 ordinary square; as the width falls it becomes a square an octave down, which is APW's character. The first
@@ -37,6 +40,12 @@ model (the width alternating w / 1 − w) matched harmonic levels in places but 
 built on the octave below (P011) by 15 dB. Every edge is band-limited across the two-cycle period.
 ## 8. Sync
 Measured (findings, "sync"): with OSC3 SYNC>OSC2, osc 3 is the master, and every one of its cycles starts osc 2
-afresh. Osc 2 runs one cycle and then holds at the end of it until the next restart. So a slave tuned above
-the master plays its ramp and then a flat stretch, the shape of a timer that the master's edge restarts and that
-stops when its own period runs out. A slave tuned below the master is cut short by the next restart.
+afresh. Osc 2 holds when it is told to (`syncHold`, set by the plug-in each sample: p2Plugin notes §22) - a saw
+at the end of its ramp, a pulse just past its edge, low, as the instrument's - until the next restart. A slave tuned
+below the master is cut short by the next restart.
+
+## 9. The gate
+`p2_dco_gate()` reads the DCO's current phase as a 50 % square, high for the first half of each cycle - or, at half
+rate, for the whole first of each pair of cycles (the cycle counter's parity) - with polyBLEP steps at its edges.
+It is X1-/X3-PWM's other input (p2Plugin notes §8): the instrument gates osc 2 with the other oscillator's timing,
+whatever that oscillator's shape.

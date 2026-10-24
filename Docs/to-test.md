@@ -36,3 +36,8 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P001, P005, P011, P013, P014, P015 sound right to CT (2026-10-23, after the pulse and mod-amount fixes); re-measure once to confirm what these measured before: P001: 7-12 dB dark (attack and sustain), phase-fixed, hiss-matched; P001/P014 at note 48 do not brighten again after the filter envelope decays as the instrument does (~18 dB over half a second) | P005: sustain 6-7 dB dark | P011: compare at a fixed phase - its slow LFO (sTRI, 24 s period) runs free on the instrument, so no take starts where the plug-in does | P013 -2 dB / P014 +2 dB in level | P015: compare with the arpeggiator OFF on both (CT) - separates the sound from the arp; then the arp on its own, released (Arp OFF, then ON) before each take-
 - P006 and P015 by ear (LEVEL2 now exponential and much deeper, p2Plugin notes §52): better or worse? Switch back with LEVEL2_EXPONENTIAL 0
 - OSC 3's Shape and Routing menus (bottom row) stay open on a click and choose on the next one
+- P006 by ear (2026-10-24: filter refit with ladder stages, osc 2's pulse polarity fixed): the noise against the oscillators, the tone 1-4 kHz, the level over the note
+- The filter by ear after the refit: resonance sweeps on LP24 (its peak and bass now as the instrument's), self-oscillation level and pitch with resonance 97-127, a loud oscillator with noise
+- X1-PWM / X3-PWM library sounds (P032, P034, P036, P049, P052, P053, P055) against the instrument
+- Sync by ear with osc 2 above osc 3 (+7, +12, +19): ramps and pulses per cycle as the instrument's
+- Oversampling now defaults to 2x: an existing Live project keeps its saved setting

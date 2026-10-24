@@ -883,3 +883,140 @@ amplitude per cycle, folded over osc 3's period, relative to osc 3 at 0:
   stay strong to the 10th (spikier) and change pattern between C3 and C4, the engine's do not.
 - Of the first 15, P006 (saw, level 58) and P015 (square, level 127) use LEVEL2.
 
+
+## 2026-10-24 - an oscillator lowers the noise (`192k/noise_mask/`, `tools/noise_mask_session.py`)
+
+CT: in P006 the oscillators seem to lower the noise. P006 at note 60 (sub-octave 130.8 Hz, all three oscillators on
+its harmonics, osc 3 synced), oscillator levels set by CC, noise read BETWEEN the harmonics, against the noise alone
+(dB; windows 0.1-0.6 / 0.6-1.6 s; the instrument's bands above 1 kHz after 0.6 s sit on its floor and are left out):
+
+| | 150-500 | 0.5-1k | 1-2k | 2-4k | 4-8k (0.1-0.6 s) | 150-500 | 0.5-1k (0.6-1.6 s) |
+|---|---|---|---|---|---|---|---|
+| osc 1 (TRI 120), instrument | -8.8 | -7.5 | -10.1 | -11.2 | -7.3 | -5.1 | -4.9 |
+| osc 1, engine | -5.8 | -4.5 | -3.8 | -4.2 | -4.2 | -3.7 | -3.3 |
+| osc 2 (PWM 101), instrument | -5.1 | -3.6 | -3.9 | -5.0 | -5.2 | -1.9 | -2.5 |
+| osc 2, engine | -3.1 | -1.8 | -1.8 | -2.2 | -2.1 | -1.5 | -1.7 |
+| all three, oscillators' own floor removed, instrument | -7.9 | -7.5 | -8.6 | -10.6 | -10.8 | -4.5 | -5.1 |
+| all three, engine | -6.3 | -4.7 | -4.3 | -5.3 | -4.9 | -1.2 | -1.5 |
+
+- **Real, not only masking:** the noise itself is lower on the instrument with an oscillator sounding, by 5-11 dB.
+- **The engine squashes too little,** by 3-7 dB at the note's start and about 1.5-3.5 dB later. The instrument's squash is
+  deepest while the filter envelope has the filter open and eases as it closes; the engine's is nearly constant. So it
+  lives in or after the filter, not only at its input (where the engine has it, p2Plugin notes §34).
+- Osc 3 on LEVEL2 adds almost nothing on the instrument (osc 2 -> osc 2+3: within 1 dB); in the engine it adds 2-3 dB.
+- Takes: noise alone and osc 1 repeat within ~1 dB; all three differ 3-5 dB take to take (the free-running
+  oscillators sum differently each take, and the squash follows the sum), so read the osc 1 row as the firm one.
+
+## 2026-10-24 - where the squash lives: a ladder stage (`192k/squash/`, `192k/selfosc_level/`)
+
+The test sound (osc 1 a triangle, noise 104, no modulation, envelopes flat, volume 40), noise read between note 48's
+harmonics against the noise alone (`tools/squash_session.py`, `squash_pitch_session.py`):
+- **Rises with the noise's frequency:** filter open, osc 127: -1 dB below 500 Hz to -7 dB at 4-8 kHz.
+- **Deepens as the cutoff closes:** below 500 Hz -1 (cutoff 127), -2.5 (64), -4 dB (40). Resonance 41 eases it.
+- **Follows the level only:** notes 36-72 (8 x the slope) and triangle against saw all within ~0.5 dB. Not slew.
+- The engine (tanh at the loop input): flat -1.9 dB at every band, cutoff and pitch. 2.1 dB rms off.
+- Volume 100 clipped the interface (peak 1.0): those takes are void.
+
+A transistor-ladder stage, `g (t(x) - t(y))`, does all three (prototype in `p2Filter.c` behind `P2_LADDER_D`, scored by
+`tools/squash_fit.py`): with t = tanh(7.5 x)/7.5 on all four stages and the loop input's tanh kept, 0.85 dB rms.
+
+**The self-oscillation, measured** (no input, note 48, volume 40; engine +20 dB for its render gain):
+
+| | cutoff 40 / 64 / 88, resonance 127 | resonance 100 |
+|---|---|---|
+| instrument | 236.7 / 966.7 / 3929 Hz, -26.6 / -27.7 / -27.9 dBFS | 246.7 / 1005 / 4085 Hz, -32.8 / -33.9 / -34.2 dBFS |
+| engine now | 3.3 dB quiet, no pitch change with resonance | 4.7 dB quiet |
+| ladder 7.5 | 11.5 dB quiet; pitch falls 0.5 semitone 100 -> 127 (instrument 0.7) | 12.8 dB quiet |
+
+The instrument's pitch falls with resonance (loudness inside the stages); the ladder reproduces it, the engine does
+not. Its offset is a constant 0.968 at every cutoff (filtercheck), which a cutoff scale would absorb.
+
+**Not adopted:** every saturating stage curve (tanh, asinh, x/sqrt(1+x^2), tanh with a linear floor, a steeper
+resonance above 97) leaves the self-oscillation 6-12 dB quiet when the squash fits; the joint fit (`filter_sat_fit.py`)
+traded the squash away (2.4 dB rms) to hit the oscillation. The resonance joining after stage 1's input curve: squash
+5-6 dB rms - rejected. On P006 the ladder fixes the note's start (osc 1/2 within ~1 dB, from 2-6 under) but squashes
+1-4 dB too much later, and 5-7 dB too much with osc 3 on LEVEL2: the engine's LEVEL2 peaks (2.6 x) drive the stages
+where the instrument's osc 3 adds no squash at all.
+Side finding: the open triangle's 3rd harmonic is -18.9 dB on the instrument, ~-25.7 in the engine; without the loop
+input's tanh (the ladder alone) -20.5 - the loop tanh dulls the triangle.
+
+## 2026-10-24 - the filter refitted: ladder stages, LP24's leak, the pole over the oscillation (`192k/squash2/`)
+
+More takes on the test sound (note 48, volume 40), `tools/squash2_session.py`:
+- **Resonance at cutoff 64:** the squash eases as resonance rises (4-8 kHz: -7 dB at 0, -5 at 41, -4 at 80/92;
+  below 500 Hz gone from 41 up).
+- **The self-oscillation from 97 to 127** (cutoff 64): already oscillating at 97 (-38.3 dBFS), rising to -27.7; the
+  pitch falls steadily 1016.7 -> 970.0 Hz (0.8 semitone).
+- **LEVEL2:** the routing alone raises the noise 5 dB (both; already modelled). Osc 2 (saw 101) alone squashes the
+  noise as the triangle does (-1 dB in the bass to -7 at 4-8 kHz). Raising osc 3 on LEVEL2 makes osc 2 QUIETER on
+  the instrument (-11.5 -> -13.4 dBFS from osc 3 at 0 to 127) and eases the squash (-1 dB at 127); the engine's osc 2
+  gets louder (-12.0 -> -11.3) and squashes more. The engine's LEVEL2 averages ~2 dB loud at osc 3 90-127.
+- **The resonant peak from the noise alone** (`tools/resonance_response.py`): LP12 already within ~1 dB at resonance
+  41/60 and 2-3 at 80. LP24 was 2-12 dB low and lost 6 dB too much bass at 92, from its leak `-0.17 x + 0.17 u`:
+  with u the loop input (`x - k S`) that is `-0.17 k S`, a cut of stage 4 that deepens with resonance (6.7 dB at
+  127). The leak taken from the input alone (identical at resonance 0) puts LP24 within 1-2 dB at 41-80, fixes
+  filtercheck's "bass loss at 40 Hz" (-9.29 against -9.1), and raises the self-oscillation 5 dB.
+- No control on the panel compensates resonance (no resonance in the cutoff or VCA as the instrument plays with
+  DRIVE CURVE = NONE): the bass loss and the peak are the filter's own.
+
+**The fit** (`tools/filter_sat_fit.py` over `filter_sat_score.py`: both squash sets, the triangle's harmonics, the
+self-oscillation's level and pitch against resonance): each stage `g (t(x) - t(y))` with
+`t(x) = x / (1 + |D x|^p)^(1/p)`, D 5.22, p 2.41; the loop input's tanh 3.1 -> 1.41; the resonance's slope above 97
+0.03 -> 0.091. Then the self-oscillation runs at 0.950 of the law at every cutoff (any saturation in the stages
+slows it), so the pole is set 1/0.950 above it - as TUNE FILTER sets the instrument's, and as the 10-17 sweeps
+measured independently (the pole 6.3 % above the oscillation, beta 1.063).
+
+| | before | after |
+|---|---|---|
+| noise squash, set 1 / set 2 (rms) | 2.12 / 2.39 dB | 1.27 / 1.20 dB |
+| triangle's harmonics through the filter (rms) | 8.48 dB | 3.65 dB |
+| self-oscillation level, resonance 100-127 | -3.7 dB | -0.1 dB (spread 0.2) |
+| its pitch fall from 100 to 127 | none (instrument 0.7 st) | within 0.03 st |
+| filtercheck | bass loss FAIL | all pass |
+| P001-P015 (patch_validate, sum) | 67.2 | 64.7: P004, P006, P011, P014 better; P005's harmonics worse (4 harmonics), its level 4.5 dB nearer |
+| P006 against today's takes, attack 0.5-4 kHz | +2.7 to +4.8 dB | -2.8 to +3.4 dB |
+
+## 2026-10-24 - oversampling (`tools/oversample_check.py`)
+
+CT heard little difference between 1x and 4x at 48 kHz. Energy off the harmonics against on them, 1x / 2x / 4x: a saw
+at note 96 -28.4 / -30.6 / -34.1 dB, a pulse at 84 -21.8 / -25.0 / -26.6, FUZZ and TUBE at drive 100 2-4 dB better
+from 1x to 2x and then flat; P003, P006, P013 and P007 the same at all three (their own noise and detuning dominate).
+The oscillators are band-limited, so only what bends the signal after them gains. Default 2x.
+
+## 2026-10-24 - X3-PWM and X1-PWM (`192k/xpwm/`, `tools/xpwm_session.py`, `xpwm_analyse.py`)
+
+Osc 2 at note 48, the other oscillator 7 semitones up, filter open; the lines at m f2 + n f_other.
+- **X3-PWM:** osc 2's pulse XOR osc 3's 50 % square. The sum and difference lines grow with osc 2's width as the
+  product predicts (PW 20/64/100/127: -44.5/-25.0/-18.6/-17.4 dB; predicted -44/-24.6/-18.1/-16.5). Osc 3's shape:
+  SQR = TRI, SAW within ~1 dB; its level: X3-PWM sounds with osc 3 at 0. At PW 0 the output is osc 3's square, at
+  osc 2's level. The swing is 1.11 of osc 2's own pulse.
+- **X1-PWM:** the lines are odd multiples of 32.7 Hz, strongest at 98 Hz - half osc 1's 196 Hz: osc 2's pulse XOR
+  a 50 % square at HALF osc 1's rate. Osc 1's shape and width hardly matter.
+- With osc 3 audible (level 127) the line at osc 3's pitch FALLS 7 dB: the XOR's component there is opposite in
+  sign to osc 3's own square.
+- The engine (p2Plugin notes §8): within ~1 dB on the main lines across widths, shapes and levels. Library sounds
+  (patch_validate, `192k/library/`): P034, P049, P055 close; P032, P036 moderate (osc 3 on VCF / LEVEL2); P052's
+  attack harmonics 9 dB; P053 (X3 with sync) the worst, its bands 11-13 dB.
+
+## 2026-10-24 - sync, again (`192k/xpwm/hw_sync_*`, `tools/xsync_session.py`)
+
+Osc 2 above osc 3 by 7, 12 and 19 semitones, synced, folded on osc 3's period: a saw plays 1, 2 and 3 ramps per
+master cycle, a pulse (PW 64) 1, 1 and 3 pulses; at +7 the saw's one ramp is followed by a flat stretch to the next
+master edge (the 10-17 finding). So osc 2 starts another cycle only if that cycle's first edge - a pulse's rise,
+the saw's half-cycle - comes before the master's next edge, and is otherwise held; the engine had held after one
+cycle always. A held pulse sits low (just past its edge), a held saw at its ramp's end. Each ramp ends in a short
+flat stretch (~0.3-0.5 ms) on the instrument - the saw's reset, not modelled. P053 harmonics in sustain 9.1 -> 4.7.
+
+## 2026-10-24 - the polarity audit (`192k/polarity/`, `tools/polarity_session.py`, `polarity_sync_session.py`)
+
+CT: one polarity may have been wrong from the start. Each source alone (note 48, filter open), one cycle folded, the
+engine's matched to the instrument's by circular correlation as is and inverted:
+- **Wrong, fixed:** osc 2's PWM (0.999 inverted against 0.216 as it was), APW (folded on its two-cycle period:
+  1.000 against 0.794), osc 2's TRI (against a synced restart: 0.999 against 0.893).
+- **Right:** osc 1 PWM, SAW, PARA-8; osc 2 SAW and X3-PWM; osc 3 SAW, and TRI against a synced saw (0.992/0.951).
+- A triangle or 50 % square alone cannot tell (both signs 0.998+): those were read against sync.
+- **EXT IN** does not invert: a lopsided 100 Hz wave sent in comes out the same way up (0.999).
+- **Open:** osc 3's square audible beside a synced osc 2 saw matches neither way (0.43/0.60) - where its edges sit
+  against the sync, not its sign.
+- P001-P015: 64.3 -> 60.9; P006 5.70 -> 2.44 (its release harmonics 11.6 -> 2.3 dB rms, envelope 5.2 -> 0.7),
+  P005 and P015 better, P014 (APW with other sources) 3.6 -> 4.1.

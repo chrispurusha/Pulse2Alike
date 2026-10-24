@@ -174,6 +174,7 @@ enum {
 #define HISS_AFTER_FILTER        (2.03e-4)
 #define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
 #define PULSE_LEVEL              (0.525)    // notes §30: a pulse against the saw, measured
+#define XPWM_SWING               (1.11)     // notes §8: X1/X3-PWM swing against osc 2's own pulse, measured
 #define LFO_SLOW_SHAPES_FROM     (5)        // sSIN on: free-running, never restarted by a note
 
 // notes §21: unison - 8 oscillators, detune × 1.25 / 256 semitone apart, symmetric about the note
@@ -298,6 +299,10 @@ static int32_t width_from_dial(int32_t dial) {
     return dial << 8;
 }
 
+// notes §8: osc 2's X3-PWM and X1-PWM play its pulse, gated by osc 3 or osc 1
+#define SHAPE_X3PWM    (3)
+#define SHAPE_X1PWM    (4)
+
 // notes §8: the shapes the DCO plays so far; every other entry of the list plays a saw until it is built
 static tP2Shape dco_shape(int32_t listIndex) {
     return ((listIndex >= 0) && (listIndex < eP2ShapeCount)) ? (tP2Shape)listIndex : eP2ShapeSaw;
@@ -333,8 +338,10 @@ static void update_dcos(tP2Plugin * p) {
 
     p2_dco_set(&p->dco[0], osc_pitch(p, note, kP2ParamOsc1Semitone, kP2ParamOsc1Detune), width_from_dial((int32_t)lround(fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc1Width) + p->mod[eModPulseWidth1])))),
                dco_shape(plain_int(p, kP2ParamOsc1Shape)), rate);
+    int32_t shape2 = plain_int(p, kP2ParamOsc2Shape);
+
     p2_dco_set(&p->dco[1], osc_pitch(p, note, kP2ParamOsc2Semitone, kP2ParamOsc2Detune), width_from_dial((int32_t)lround(fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc2Width) + p->mod[eModPulseWidth2])))),
-               dco_shape(plain_int(p, kP2ParamOsc2Shape)), rate);
+               (shape2 >= SHAPE_X3PWM) ? eP2ShapePulse : dco_shape(shape2), rate);
     // osc 3: SQR is an exact square (p2Dco notes §4); SAW and TRI as the others
     p2_dco_set(&p->dco[2], osc_pitch(p, note, kP2ParamOsc3Semitone, kP2ParamOsc3Detune), P2_WIDTH_SQUARE,
                (shape3 == 0) ? eP2ShapePulse : dco_shape(shape3), rate);
@@ -1127,7 +1134,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     // notes §30: a pulse is quieter than the DCO's saw; the three oscillators' share in the mix
     int32_t        shape1    = plain_int(p, kP2ParamOsc1Shape);
     double         mix1      = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
-    double         mix2      = (plain_int(p, kP2ParamOsc2Shape) == 0) ? PULSE_LEVEL : 1.0;
+    int32_t        shape2    = plain_int(p, kP2ParamOsc2Shape);
+    double         mix2      = (shape2 == 0) ? -PULSE_LEVEL : ((shape2 >= SHAPE_X3PWM) ? (PULSE_LEVEL * XPWM_SWING) : ((shape2 == 2) ? -1.0 : 1.0));   // notes §39: osc 2's pulse and triangle the other way up
     int32_t        shape3    = plain_int(p, kP2ParamOsc3Shape);
     bool           feedback  = shape3 == 4;
     double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
@@ -1210,10 +1218,15 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
         update_filter(p);
 
         for (int o = 0; o < p->oversample; o++) {
+            // notes §8: X3-PWM gates osc 2 with osc 3's square, X1-PWM with one at half osc 1's rate
+            double gate2   = (shape2 == SHAPE_X3PWM) ? -p2_dco_gate(&p->dco[2], false) : ((shape2 == SHAPE_X1PWM) ? -p2_dco_gate(&p->dco[0], true) : 1.0);
             double osc3    = p2_dco_next(&p->dco[2]);
             bool   sync    = plain_int(p, kP2ParamOsc3Sync) != 0;
 
-            p->dco[1].syncHold = sync;
+            // notes §22: osc 2 starts another cycle only if that cycle's first edge comes before osc 3's next one
+            double first2  = (p->dco[1].shape == eP2ShapePulse) ? (1.0 - p->dco[1].pulseFraction) : 0.5;
+
+            p->dco[1].syncHold = sync && (((1.0 - p->dco[2].phase) * p->dco[1].increment) < (first2 * p->dco[2].increment));
 
             if (sync && p->dco[2].wrapped) {          // notes §22: osc 3's edge restarts osc 2
                 p2_dco_restart(&p->dco[1]);
@@ -1257,9 +1270,13 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                     sum += p2_dco_next(&p->unison[u]);
                 }
 
-                osc += (mix1 * level1 * UNISON_VOICE_GAIN * sum) + (mix2 * amp2 * p2_dco_next(&p->dco[1]));
+                osc += (mix1 * level1 * UNISON_VOICE_GAIN * sum) + (mix2 * amp2 * gate2 * p2_dco_next(&p->dco[1]));
+
+                if (shape2 == SHAPE_X1PWM) {
+                    p2_dco_next(&p->dco[0]);          // osc 1's timer still runs for X1-PWM's gate
+                }
             } else if (voices == 0) {
-                osc += osc_stage(p, 0, mix1 * level1 * p2_dco_next(&p->dco[0]), evenHp) + osc_stage(p, 1, mix2 * amp2 * p2_dco_next(&p->dco[1]), evenHp);
+                osc += osc_stage(p, 0, mix1 * level1 * p2_dco_next(&p->dco[0]), evenHp) + osc_stage(p, 1, mix2 * amp2 * gate2 * p2_dco_next(&p->dco[1]), evenHp);
             } else {
                 // notes §12: PARA-8 one pulse per voice, PARA-4 two; each fades on its own
                 for (int v = 0; v < voices; v++) {

@@ -32,21 +32,33 @@ static const double kFeedbackAt[][2]        = {
     { 0.0, 0.00}, {16.0, 0.06}, {32.0, 0.78}, {48.0, 1.54}, {64.0, 2.32},
     {80.0, 3.15}, {88.0, 3.52}, {92.0, 3.78}, {96.0, 3.97}, {97.0, 4.00},
 };
-#define FEEDBACK_ABOVE_97    (0.03)
+#define FEEDBACK_ABOVE_97    (0.0867)   // notes §2, §9: refitted with the stages' saturation
 
 // notes §3
 static const double kMix[eP2FilterCount][6] = {
-    {-0.17298,  0.17199, 0.00074, -0.05179,  0.23875, 1.54050}, // LP24 - notes §7: fitted to the noise through the filter
+    {-0.00099,  0.00000, 0.00074, -0.05179,  0.23875, 1.54050}, // LP24 - notes §7, §10: its leak from the input alone
     { 0.00000, -0.00068, 0.00144,  1.54098, -0.28386, 0.16416}, // LP12 - the 10-19 leak refit, x 0.902
     {  0.0039,  -0.0118,  0.9137,  -0.9947,   0.1210, -0.0345}, // BP12
     { -0.0032,   0.4867, -1.0194,   0.4379,   0.2133, -0.1162}, // HP12
 };
-#define SHELF_ZERO_HZ    (250.2)
-#define SHELF_POLE_HZ    (179.3)
-#define TOP2_HZ          (42533.0)
+#define SHELF_ZERO_HZ            (250.2)
+#define SHELF_POLE_HZ            (179.3)
+#define TOP2_HZ                  (42533.0)
 
-// notes §4
-#define LOOP_DRIVE       (3.1)
+// notes §4, §9
+#define LOOP_DRIVE               (1.438)
+#define STAGE_DRIVE              (5.185)
+#define POLE_OVER_OSCILLATION    (1.0622)
+#define STAGE_POLE_LIMIT         (0.33)   // notes §11: of the rate the stages run at
+
+// notes §9: a transistor-ladder stage, g (tanh(x) - tanh(y)), with tanh(y) linearised about the state
+static double ladder_pole(double * state, double g, double x) {
+    double t = tanh(STAGE_DRIVE * *state);
+    double y = *state + (g * (tanh(STAGE_DRIVE * x) - t) / STAGE_DRIVE / (1.0 + (g * (1.0 - (t * t)))));
+
+    *state = (2.0 * y) - *state;
+    return y;
+}
 
 double p2_filter_oscillation_hz(double cutoff) {
     double hz = OSC_HZ_AT_ZERO * pow(2.0, cutoff / CUTOFF_STEPS_PER_OCT);
@@ -76,8 +88,8 @@ double p2_filter_feedback(double resonance) {
     return kFeedbackAt[n - 1][1];
 }
 
-static double tpt_gain(double hz, double sampleRate) {
-    double limit = 0.49 * sampleRate;
+static double tpt_gain(double hz, double sampleRate, double limitOfRate) {
+    double limit = limitOfRate * sampleRate;
     double g     = tan(M_PI * fmin(hz, limit) / sampleRate);
 
     return g / (1.0 + g);
@@ -85,6 +97,7 @@ static double tpt_gain(double hz, double sampleRate) {
 
 void p2_filter_init(tP2Filter * f, double sampleRate) {
     memset(f, 0, sizeof(*f));
+
     f->leakScale  = 1.0;
     f->sampleRate = sampleRate;
 
@@ -97,7 +110,7 @@ void p2_filter_init(tP2Filter * f, double sampleRate) {
     f->shelfB0    = (1.0 + (1.0 / z)) * p / a;
     f->shelfB1    = (1.0 - (1.0 / z)) * p / a;
     f->shelfA1    = (1.0 - (1.0 / p)) * p / a;
-    f->top2G      = tpt_gain(TOP2_HZ, sampleRate);
+    f->top2G      = tpt_gain(TOP2_HZ, sampleRate, 0.49);
     p2_filter_set(f, 127.0, 0.0, eP2FilterLp24);
 }
 
@@ -107,10 +120,9 @@ void p2_filter_reset(tP2Filter * f) {
 }
 
 void p2_filter_set(tP2Filter * f, double cutoff, double resonance, tP2FilterMode mode) {
-    f->G       = tpt_gain(p2_filter_oscillation_hz(cutoff), f->sampleRate);
-    f->k       = p2_filter_feedback(resonance);
+    f->G = tpt_gain(POLE_OVER_OSCILLATION * p2_filter_oscillation_hz(cutoff), f->sampleRate, STAGE_POLE_LIMIT);         // notes §9
+    f->k = p2_filter_feedback(resonance);
     memcpy(f->mix, kMix[((int)mode >= 0) && (mode < eP2FilterCount) ? mode : eP2FilterLp24], sizeof(f->mix));
-    f->lowPass = (mode == eP2FilterLp24);   // notes §7: LP12 fits better with its leak after the saturation
 }
 
 static double one_pole(double * state, double G, double x) {
@@ -130,16 +142,13 @@ double p2_filter_process(tP2Filter * f, double x) {
     // what stage 4 would output with zero loop input, each state carried through the stages after it
     S         = (G2 * G * (1.0 - G) * f->stage[0]) + (G2 * (1.0 - G) * f->stage[1]) + (G * (1.0 - G) * f->stage[2]) + ((1.0 - G) * f->stage[3]);
 
-    double u     = (x - (f->k * S)) / (1.0 + (f->k * G2 * G2));
-    double uMix  = u;    // notes §7: the low-passes' leak takes the loop input before the saturation
-
-    u         = tanh(LOOP_DRIVE * u) / LOOP_DRIVE;
-
-    double y1    = one_pole(&f->stage[0], G, u);
-    double y2    = one_pole(&f->stage[1], G, y1);
-    double y3    = one_pole(&f->stage[2], G, y2);
-    double y4    = one_pole(&f->stage[3], G, y3);
-    double out   = (f->leakScale * ((f->mix[0] * x) + (f->mix[1] * (f->lowPass ? uMix : u)))) + (f->mix[2] * y1) + (f->mix[3] * y2) + (f->mix[4] * y3) + (f->mix[5] * y4);
+    double u     = tanh(LOOP_DRIVE * (x - (f->k * S)) / (1.0 + (f->k * G2 * G2))) / LOOP_DRIVE;
+    double g     = G / (1.0 - G);
+    double y1    = ladder_pole(&f->stage[0], g, u);
+    double y2    = ladder_pole(&f->stage[1], g, y1);
+    double y3    = ladder_pole(&f->stage[2], g, y2);
+    double y4    = ladder_pole(&f->stage[3], g, y3);
+    double out   = (f->leakScale * ((f->mix[0] * x) + (f->mix[1] * u))) + (f->mix[2] * y1) + (f->mix[3] * y2) + (f->mix[4] * y3) + (f->mix[5] * y4);
 
     double shelf = (f->shelfB0 * out) + (f->shelfB1 * f->shelfX) - (f->shelfA1 * f->shelfY);
 

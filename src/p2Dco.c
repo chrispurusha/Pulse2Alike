@@ -110,6 +110,22 @@ static double apw(double u, double w, double dt) {
     return out;
 }
 
+// notes §9: high for the first half of the cycle (or, at half rate, for the whole first of two cycles)
+float p2_dco_gate(const tP2Dco * dco, bool halfRate) {
+    double t  = dco->held ? 0.999999 : dco->phase;
+    double dt = dco->held ? 0.0 : dco->increment;
+
+    if (halfRate) {
+        double u = t + ((dco->cycle & 1) ? 1.0 : 0.0);
+
+        return (float)(((u < 1.0) ? 1.0 : -1.0) + edge_blep(u, 0.0, dt) - edge_blep(u, 1.0, dt));
+    }
+    double h  = t + 0.5;
+
+    h -= (h >= 1.0) ? 1.0 : 0.0;
+    return (float)(((t < 0.5) ? 1.0 : -1.0) + poly_blep(t, dt) - poly_blep(h, dt));
+}
+
 // notes §6
 void p2_dco_restart(tP2Dco * dco) {
     dco->phase = 0.0;
@@ -117,7 +133,8 @@ void p2_dco_restart(tP2Dco * dco) {
 }
 
 float p2_dco_next(tP2Dco * dco) {
-    double t  = dco->held ? 0.999999 : dco->phase;     // notes §8: a held slave sits at the end of its cycle
+    // notes §8: a held slave sits at the end of its cycle - for a pulse, just past its edge
+    double t  = dco->held ? ((dco->shape == eP2ShapePulse) ? 0.0 : 0.999999) : dco->phase;
     double dt = dco->held ? 0.0 : dco->increment;
     double out;
 
@@ -131,7 +148,7 @@ float p2_dco_next(tP2Dco * dco) {
             break;
 
         case eP2ShapeApw:
-            out = apw(t + ((dco->cycle & 1) ? 1.0 : 0.0), dco->pulseFraction, dt);
+            out = -apw(t + ((dco->cycle & 1) ? 1.0 : 0.0), dco->pulseFraction, dt);   // notes §7: the other way up, as the pulse
             break;
 
         case eP2ShapePulse:

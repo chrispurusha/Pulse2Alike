@@ -54,6 +54,7 @@ double p2_dco_pulse_fraction(int32_t width);   // notes §4: of the cycle the pu
 
 void p2_dco_set(tP2Dco * dco, int32_t pitch, int32_t width, tP2Shape shape, double sampleRate);
 float p2_dco_next(tP2Dco * dco);
-void p2_dco_restart(tP2Dco * dco);      // the master's edge: start a new cycle now
+void p2_dco_restart(tP2Dco * dco);                    // the master's edge: start a new cycle now
+float p2_dco_gate(const tP2Dco * dco, bool halfRate); // notes §9: a 50 % square on its edges, now
 
 #endif // __P2_DCO_H__
