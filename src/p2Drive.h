@@ -32,8 +32,6 @@ typedef struct {
     double lowPass;   // the shelf after it
     double dcBlock;
     double dcIn;
-    double inPower;   // notes §5: the input's level, for the quiet-input loss
-    double inAttack, inRelease;
 } tP2Drive;
 
 void p2_drive_init(tP2Drive * d, double rate);

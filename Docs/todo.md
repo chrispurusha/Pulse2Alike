@@ -6,11 +6,11 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P012 (CT 2026-10-23): resonance tone higher on the instrument - measured: the instrument's filter has drifted up since 10-17 (+0.6 semitone at cutoff 0 to +0.1 at 88; findings 2026-10-23), the law matches 10-17. NEXT: CT runs TUNE FILTER on the instrument, then re-measure cutoff 0/40/64/88 at note 60
 - P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
 - Filter: re-score the near-cutoff 3rd harmonic (`postsat/`, -46 to -34 dB rising with level) against the refitted ladder stages (p2Filter notes §9) - it was 10-25 dB short with the loop-input tanh alone
-- LEVEL2 above osc 3 level 58 is extrapolated (fitted 12-58): at 90/127 the instrument's osc 2 gets 1-2 dB QUIETER on average, the engine's 0.7 dB louder (findings 2026-10-24, `192k/squash2/l2_*`) - fit the law there from the l2 takes; P015 (127) and library sounds
+- LEVEL2: a law is fitted and better everywhere except P006 (findings 2026-10-24 'LEVEL2 measured for a law'): first settle, under SYNC, where osc 2's pulse sits on osc 3's cycle, where the saw resets against the timer's main edge, and the pulse's polarity there (`pulse_phase_session.py`: the instrument's pulse is a bump halfway along the saw) - then adopt the law and recheck P006/P015
 - LEVEL2 (P006, P015): the coupled linear law is fitted (p2Plugin notes §52); CT to check by ear. Left: the engine's slew and loop saturation compress loud fast signals more than the instrument (2 kHz LEVEL2 takes, open triangle) - refit with the filter (see the Filter item)
 - P010 (CT): still brighter on the plug-in; osc 1 alone, filter open, different - PARA-4 with LFO 2 on PW1 (amount 94) and PW2, so the width modulation's depth and the paraphonic voices
 - P002 (CT): close; perhaps the start of the note (attack) - not certain
-- P003: the drive, as in Drive below
+- P003: now gates off as the instrument's does (p2Plugin notes §55) - CT to check by ear
 - P001: osc 1 and osc 3 alone, filter open, are 1.1-1.4 dB and 3.3 dB louder in the engine at every note - measure the oscillators' level laws across their range (P001 sounds much better since the pulse fixes, CT)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
@@ -22,14 +22,13 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 
 ## Drive
-- The level with a drive curve on: the instrument's output gain moves with resonance, the loudest oscillator level and the cutoff (opposite ways for LP and HP), rising fast and falling slowly - measure it (P003)
-In order (agreed 2026-10-20; the shapes of p2Drive notes §6 are in and sound better, not perfect):
-1. P003 on NONE is ~10 dB darker above 250 Hz than the instrument, so FUZZ gets a dull input (+13.5 dB at 1-4 kHz against +24.5): find what upstream - the filter near cutoff 24? Likely the same as P001/P014 not brightening at note 48 (First)
-2. The quiet-input loss depends on pitch: notes 72/84 lose 2-3 dB less than note 48 (p2Drive notes §5) - fit the multi-frequency EXT captures (`192k/drive/drive_*_f{100,300,1000,3000}.wav`) for a coupling capacitor's frequency dependence, then let the meter or knee follow
-3. FUZZ at quiet inputs (-30 dBFS EXT): even harmonics ~15 dB above the instrument's - a structure where the bias sets the coupling loop's operating point without lopsided clipping (e.g. the bias on the coupling path, not the clipper) - p2Drive notes §6
-4. TUBE: its fitted bias sits at the fit's bound and it is 8 dB rms off on harmonics - a bias that follows the signal's level (its duty changes with Drive); a fixed bias per Drive went degenerate - p2Drive notes §6
-5. Rig: the settling - long repeated quiet notes at a few Drives (FUZZ's gain climbs ~3 dB over 0.75 s; does the previous note matter?) - way 2 of p2Drive notes §4; with it, sines 50 Hz-5 kHz and a two-tone through EXT at stepped levels
-6. Rig: osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
+- The output gate is in (p2Plugin notes §55) and the fitted quiet-input loss is off (p2Drive notes §7); P003 gates off as the instrument's does
+- FUZZ at quiet Levels (14-20): the instrument still clips and lifts quiet signals (+3.8 dB against NONE at -45 dBFS in, BP12), the engine does not (0) - more gain into the clipper; refit running (`drive_shape.py 2 gated`)
+- TUBE: the gated refit gained nothing (8.2 dB rms, a parameter at its bound) - its structure; a level trend of -3..-5 dB at Levels 14-24 easing to 0 by 80
+- TUBE on noise (P030: noise 127 through BP12, Drive 127): 10 dB loud, same decay shape - capture noise through TUBE at a few Drives
+- FUZZ at quiet EXT inputs: even harmonics ~15 dB above the instrument's (p2Drive notes §6)
+- Rig: osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
+- The drive-on output gate's thresholds were measured with FUZZ; check one TUBE point
 
 ## Rig
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture

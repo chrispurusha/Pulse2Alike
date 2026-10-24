@@ -1055,3 +1055,45 @@ the pitch tracked over 14 s: periods 3.1 s at speed 14, 7.5 s at 9, ~21 s at 4 (
 0 (p2Lfo notes §6). 73 library sounds use an LFO speed under 16. P051's level envelope 19.0 -> 2.9 dB; its harmonics
 (osc 2 synced 29 semitones over osc 3, LFO 2 on osc 2's pitch) stay 16 dB off - the instrument's energy sits at the
 master's 8th-9th harmonics, the engine's at the 5th-6th.
+
+## 2026-10-24 - the drive: an output gate, not a quiet-input loss (`192k/drive_gate/`, `192k/drive_quiet/`, `192k/p003_1024/`)
+
+- **With a drive curve on, the output follows what could be coming through** (p2Plugin notes §55): the loudest
+  source's Level, resonance near oscillation, and the filter's opening. Saw at Level 30 through LP12, FUZZ Drive 17
+  against NONE: -0.5 / -12.2 / -30.0 dB at cutoff 24 / 20 / 16 (cutoff 12 and 8 at the floor); the engine -2.2 /
+  -12.2 / -29.1 with the low-pass threshold at 4. HP12 at cutoff 104: -13.4 (engine -15.5), shut from 110.
+- **No signal-level loss:** a saw at Level 127 through BP12 (the gate open), the cutoff stepped so the drive's input
+  falls from -28 to -45 dBFS: TUBE +1.3 -> +0.2 dB, FUZZ +1.0 -> +3.8 against NONE. The fitted quiet-input loss
+  (p2Drive notes §5) imitated the gate and is gone (p2Drive notes §7).
+- **The level sweep:** output level rms over its takes 8.6 -> 4.3 dB; FUZZ within 1 dB from Level 16; TUBE -3 to -5
+  dB at Levels 14-24, easing to 0 by 80. Harmonics better for TUBE at quiet Levels, worse for FUZZ (the instrument's
+  FUZZ still clips there; the engine's does not).
+- **P003** (FUZZ 17, LP12 cutoff 24 with envelope, Level 30): every 0.1 s -21/-35/-57/-60/-75 dB then its floor on
+  the instrument, -20/-31/-58/-73/-80 in the engine; it had held a FUZZ sustain at about -38, 37 dB over.
+- **The static shapes refitted with the gate** (`drive_shape.py <curve> gated`, every level, the gate as each take's
+  gain): FUZZ 6.81 -> 6.53 dB rms (its knee at the bound, a large bias), TUBE 8.23 -> 8.20 (a constant at its
+  bound) - neither kept; both are at the limit of their structure. Left: P030 (noise through BP12 into TUBE 127)
+  10 dB loud with the decay right; FUZZ at Drive 0 ~11 dB rms on harmonics.
+
+## 2026-10-24 - LEVEL2 measured for a law, and why it is not in (`192k/level2_law/`, `192k/level2_freq/`, `192k/p006_level2/`, `192k/pulse_phase/`)
+
+Osc 2 a saw at 2093 Hz, osc 3 on LEVEL2 at 16.35 Hz (`tools/level2_session.py`), osc 2's envelope folded on osc 3:
+- **The square:** one half lifts osc 2 only ~+0.25 nepers (the headroom to Level 127's gain), the other cuts it to
+  near silence from osc 3 Level 45 up; at 30 the cut decays back within the half (AC coupling, ~27 ms).
+- **The saw:** osc 2's level falls straight in log along the ramp - exponential in osc 3, not through the level law.
+- **Osc 2's own Level matters:** at osc 3 Level 30 the swing is 2.95 / 0.85 / 0.48 nepers at osc 2 Level 64 / 101 / 127.
+- **Not osc 3's frequency:** at osc 3 Level 58 the swing is 3.8-5.7 nepers from 16 to 131 Hz, saw and square alike.
+- **A law fitted** (`level2_fit4.py`, z fixed in a sweep): osc 2's level x exp(g), g a soft minimum of
+  4.02 x min(1, (L3/59.1)^2.73) x 77/(L2 - 50) x osc 3 (high-passed, 27.4 ms) and the headroom to Level 127's gain
+  less 0.075 (knee 3.94). On the 22 takes, engine against instrument: mean level 2.2 -> 1.2 dB rms, shape 1.02 ->
+  0.89 nepers rms; osc 2 Level 64 still 2-4 dB loud. P015 5.43 -> 4.57.
+- **Not adopted: P006 went 2.44 -> 6.90.** P006's LEVEL2 path alone (osc 1 and noise off, filter open,
+  `p006_level2_check.py`): the instrument's 2nd harmonic is -6 dB (note 48) and level with the fundamental (note 60);
+  the old law gives -10/-12 and the new -17/-15, the levels +3.5/+4.6 and -4.2/-3.0 dB. P006 has SYNC on, which
+  fixes where osc 2's pulse sits on osc 3's ramp. Moving the engine's pulse to the start of its cycle gave -0.6/+0.5
+  dB and a 2nd harmonic of -3/-4; a narrow pulse synced at osc 3's pitch with osc 3's saw audible
+  (`pulse_phase_session.py`) puts the instrument's pulse as a bump about halfway along the saw's ramp - which the
+  engine reaches by resetting the saw half a cycle from the timer's main edge (the half-cycle edge that sync's
+  first-edge rule already uses for the saw), but then the pulse comes out as a dip, against the polarity audit.
+  So under sync the pulse's place, the saw's reset phase and the polarity interact in a way not yet modelled; the
+  old law, fitted to P006 itself, stays until that is settled.

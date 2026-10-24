@@ -488,5 +488,6 @@ or a closing filter, shuts the drive down - P003, a FUZZ pluck, falls to the ins
 Measured (findings 2026-10-24): the level sweep's quiet osc levels (output level rms over 85 takes 8.6 -> 4.3 dB; FUZZ
 within 1 dB from Level 16), and a saw at Level 30 through LP12 with the cutoff stepped (FUZZ - NONE at cutoff
 16/20/24: -30.0/-12.2/-0.5 dB on the instrument, -29.1/-12.2/-2.2 in the engine) - which set the LP threshold at 4,
-not the 6 the structure alone gives. HP12's threshold is unmeasured. It replaced the fitted quiet-input loss of
+not the 6 the structure alone gives. HP12's (118 - cutoff)/32 measured as it stands: FUZZ - NONE at cutoff 104
+-13.4 dB on the instrument, -15.5 in the engine, both shut from 110. It replaced the fitted quiet-input loss of
 p2Drive notes §5: through BP12 (the gate open) the drive's output does not fall with a quieter input (p2Drive §7).

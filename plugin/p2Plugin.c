@@ -178,7 +178,6 @@ enum {
 #define HISS_AFTER_FILTER        (2.03e-4)
 #define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
 #define PULSE_LEVEL              (0.525)    // notes §30: a pulse against the saw, measured
-#define DRIVE_GATE               (1)        // notes §55 (PROTOTYPE switch)
 #define DRIVE_GATE_FALL_S        (0.032)
 #define DRIVE_GATE_LP_FROM       (4.0)      // notes §55: the cutoff the low-passes' gate opens from, measured
 #define XPWM_SWING               (1.11)     // notes §8: X1/X3-PWM swing against osc 2's own pulse, measured
@@ -554,7 +553,7 @@ static void recover_signal_path(tP2Plugin * p, double acc) {
         synthlib_log_line("FAULT: output %g; filter %g %g %g %g, slewed %g, mix %g, filterCoupled %g, drive %g/%g/%g, "
                           "noise %g %g, hiss %g %g %g %g, dco %g %g %g, vca %g, cutoff %g, hiss %d, oversample %d",
                           acc, p->filter.stage[0], p->filter.stage[1], p->filter.stage[2], p->filter.stage[3], p->slewed,
-                          p->mixCoupled, p->filterCoupled, p->driveOut, p->drive.coupled, p->drive.inPower,
+                          p->mixCoupled, p->filterCoupled, p->driveOut, p->drive.coupled, p->driveGate,
                           p->noiseLp[0], p->noiseLp[2], p->hissLp[0], p->hissLp[2], p->hissLp[4], p->hissLp[6],
                           p->dco[0].increment, p->dco[1].increment, p->dco[2].increment, p->vca, p->cutoffNow,
                           plain_int(p, kP2ParamHiss), p->oversample);
@@ -759,7 +758,7 @@ static void control_tick(tP2Plugin * p, double dt) {
     // notes §15: one VCA curve, of envelope × the volume velocity has moved
     double volume = plain(p, kP2ParamVolume) + (p->velocity * 127.0 * (plain(p, kP2ParamAmpVelocity) - 64.0) / 64.0) + p->mod[eModVolume];
 
-    double vcaIn  = envA * fmin(127.0, fmax(0.0, volume)) / 127.0 * (DRIVE_GATE ? p->driveGate : 1.0);
+    double vcaIn  = envA * fmin(127.0, fmax(0.0, volume)) / 127.0 * p->driveGate;   // notes §55
 
     p->vcaTarget    = p2_vca_gain(vcaIn);
     // notes §53: each side's VCA sees envelope x volume x sqrt(its share); a panning mod moves Pan half as far, the other way
