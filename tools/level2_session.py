@@ -15,7 +15,8 @@ OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/level2_law'
 NOTE, F2, F3 = 60, 2093.0, 261.6256 / 16
 LEVELS = (0, 15, 30, 45, 58, 75, 90, 110, 127)
 CASES = [('saw', 1, lv, 101) for lv in LEVELS] + [('sqr', 0, lv, 101) for lv in LEVELS] + \
-        [('saw', 1, lv, l2) for l2 in (64, 127) for lv in (0, 30, 58, 127)]
+        [('saw', 1, lv, l2) for l2 in (64, 127) for lv in (0, 30, 58, 127)] + \
+        [('saw', 1, lv, l2) for l2 in (40, 80) for lv in (0, 30, 58, 90)] + [('saw', 1, 90, 64)]
 
 
 def tag(shape, lv, l2):

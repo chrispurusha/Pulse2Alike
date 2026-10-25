@@ -189,7 +189,6 @@ enum {
 
 // notes §12: a paraphonic voice - one pulse (PARA-8) or two (PARA-4), fading on its own into the shared filter
 #define PARA_VOICES_MAX          (8)
-#define PARA_FADE_SECONDS        (0.02)   // the fade in, which Fade does not change
 // notes §26: a released voice decays as a release stage of R - 5.5 - 0.61 (127 - Fade)
 #define FADE_RELEASE_OFFSET      (5.5)
 #define FADE_RELEASE_SLOPE       (0.61)
@@ -1252,7 +1251,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     bool           unison    = unison_mode(p) != 0;
     bool           osc3Off   = unison || (voices > 0);                                // notes §8: the unison and paraphonic modes take osc 3 (and 2) over
     double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL; // notes §12
-    double         fadeStep  = 1.0 / (PARA_FADE_SECONDS * p->sampleRate * p->oversample);
+    // notes §26: a voice fades in at the amp envelope's attack (Fade does not change it)
+    double         fadeStep  = 1.0 / (fmax(1e-4, p2_env_attack_seconds(plain(p, kP2ParamEnvAAttack))) * p->sampleRate * p->oversample);
     // notes §26: a released voice fades only while other keys hold the amp envelope; with every key up, the
     // envelope's own release is the release
     double         fadeOut1  = (p->noteCount > 0) ? voice_fade_out(p, kP2ParamOsc1Fade) : 1.0;

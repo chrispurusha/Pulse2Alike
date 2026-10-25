@@ -1144,3 +1144,20 @@ A triangle at note 60 through LP24 at cutoff 45 (osc 1 Level 40-127, MIX and LEV
 not used in the filter's refit: the engine's 3rd harmonic is now within 0.6 dB rms of the instrument's over all 16
 takes (mean +0.3; -46 to -34 dB, rising with level and the routing gain as the instrument's does) - it was 10-25 dB
 short before the ladder stages (p2Filter notes §9). The 2nd harmonic within 1-6 dB.
+
+## 2026-10-25 - paraphonic plucks (`192k/para_env/`)
+
+Amp envelope Attack 0, Decay 30, Sustain 0, osc 1 at 127: PWM and PARA-8 both decay to the floor on the instrument as
+the amp envelope says (no held tail in PARA mode). The engine's PARA-8 pluck began 8 dB quiet - each voice faded in
+over a fixed 20 ms; at the amp envelope's own attack it is within 0.1 dB (-34.3 against -34.4). Library PARA sounds
+unchanged (most have slow attacks). P017 (PARA-8, LP12 at cutoff 0 opened by a slow filter envelope with the D-D
+loop) still starts ~16 dB quiet and lacks the instrument's held tail at about -47 dB - not the amp envelope, not the
+mod wheel (a take with it at 0 is identical), not D-D skipping the attack (it does not: OFF, A-D and D-D identical
+over their first 1.3 s at Attack 80).
+
+## 2026-10-25 - LEVEL2 at lower osc 2 Levels (`192k/level2_law/saw_*_o240|o280|l90_o264`, `tools/level2_fit5.py`)
+
+Osc 2 at Levels 40 and 80 added (osc 3 a saw at 30/58/90): below Level 101 the instrument's osc 2 both rises
+higher on the boost (+1.2-1.5 nepers at Level 40) and falls deeper; the engine comes out 1.5-4 dB loud there
+(mean level over all 31 takes 1.6 dB rms). Freeing how the depth grows as osc 2 falls ((127-z)/(L2-z))^q and how much
+headroom the boost gets: 1.9 dB rms, worse at osc 3 Levels 15-30 - not adopted; the form is still missing something.

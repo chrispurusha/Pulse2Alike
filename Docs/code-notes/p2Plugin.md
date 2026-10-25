@@ -149,8 +149,9 @@ Measured (findings, "unison"): UNISON and UNIAPW are eight pulse (or APW) oscill
 symmetrically about the note, Unison Detune × 1.25 / 256 semitone apart (15.6 cents at 32, 31.1 at 64, 62 at
 127). M is monophonic: the newest note, with glide. P shares the eight between the held notes, which so far is
 provisional: they are split evenly, and the captured chord was more lopsided than that. Each oscillator is scaled
-so the eight come out near the measured level, about 5.5 dB below one pulse at full level. Osc 2 and osc 3 play
-as usual alongside.
+so the eight come out near the measured level, about 5.5 dB below one pulse at full level. Osc 2 and osc 3 are not
+there in unison (§8). At Unison Detune 0 the eight play one pitch at unrelated phases, so their sum's harmonics are
+a random draw on the instrument as in the engine (P102 cannot be compared take to take).
 
 ## 22. Sync
 OSC3 SYNC>OSC2 makes osc 3 the master of osc 2: osc 3's main edge restarts osc 2. Synced, osc 2's wave is read 0.88
@@ -194,7 +195,9 @@ instrument's noise floor does.
 Measured (findings, "voice fade"): in PARA-8/PARA-4 a released voice dies away while the others hold the amp
 envelope open, as a release stage of R − 5.5 − 0.61 × (127 − Fade), R the amp envelope's Release: from two points
 (Fade 127 and 100 at R 70) and checked by the rest (Fade 83 almost at once, 64 and below at once, R 40 at once
-whatever Fade). Osc 2's part of a PARA-4 voice uses osc 2's Fade. The fade in is not changed by Fade. When the
+whatever Fade). Osc 2's part of a PARA-4 voice uses osc 2's Fade. The fade in is not changed by Fade; it runs at
+the amp envelope's Attack (it was a fixed 20 ms, which ate a pluck's start: PARA-8 at Attack 0, Decay 30 began
+8 dB quiet; now within 0.1 dB of the instrument, 2026-10-25). When the
 last key is released no voice fades on its own: the amp envelope's release is the release (CT, P010: the pad's
 release was far shorter than the instrument's when every voice faded by itself).
 
