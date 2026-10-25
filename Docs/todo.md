@@ -7,21 +7,22 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
 - Sync and LEVEL2 are in (p2Plugin notes §22, §52). Left: LEVEL2 below osc 2 Level 101 1.5-4 dB loud (findings 2026-10-25, a richer form needed); the synced pulse against osc 3's square (0.78); P046, P073, P160, P228 slightly worse with it
 - LEVEL2 (P006, P015): the coupled linear law is fitted (p2Plugin notes §52); CT to check by ear. Left: the engine's slew and loop saturation compress loud fast signals more than the instrument (2 kHz LEVEL2 takes, open triangle) - refit with the filter (see the Filter item)
-- P010 (CT): still brighter on the plug-in; osc 1 alone, filter open, different - PARA-4 with LFO 2 on PW1 (amount 94) and PW2, so the width modulation's depth and the paraphonic voices
+- P010 (CT 2026-10-25): more chorused on the plug-in - detune, width, PWM, pitch routing and LFO 2 all match on the instrument (findings 2026-10-25); a chord's wobble matches, but the engine is ~3 dB bright at 2.5-6 kHz - chase that; also ~4 dB quiet
 - P002 (CT): close; perhaps the start of the note (attack) - not certain
-- P003: now gates off as the instrument's does (p2Plugin notes §55) - CT to check by ear
+- P003 (CT 2026-10-25): better but still not close - with the FUZZ items under Drive
 - P001: osc 1 and osc 3 alone, filter open, are 1.1-1.4 dB and 3.3 dB louder in the engine at every note - measure the oscillators' level laws across their range (P001 sounds much better since the pulse fixes, CT)
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
 - P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
 - Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
-- The thump: which control leaks (oscillators and noise off, one envelope at a time) - p2Plugin notes §43
+- The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
 - Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
 - Transpose on the GLOBAL page: +-24 semitones, as the instrument's
 - Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 
 ## Drive
 - The output gate is in (p2Plugin notes §55) and the fitted quiet-input loss is off (p2Drive notes §7); P003 gates off as the instrument's does
+- FUZZ overall (CT 2026-10-25): better but still not close by ear
 - FUZZ at quiet Levels (14-20): the instrument still clips and lifts quiet signals (+3.8 dB against NONE at -45 dBFS in, BP12), the engine does not (0) - more gain into the clipper; refit running (`drive_shape.py 2 gated`)
 - TUBE: the gated refit gained nothing (8.2 dB rms, a parameter at its bound) - its structure; a level trend of -3..-5 dB at Levels 14-24 easing to 0 by 80
 - TUBE on noise (P030: noise 127 through BP12, Drive 127): 10 dB loud, same decay shape - capture noise through TUBE at a few Drives
@@ -49,10 +50,9 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
 
 ## Engine
-- Library sweep leftovers (findings 2026-10-24): P010 ~4 dB quiet (attack/sustain/release alike); P017 PARA-8 starts ~16 dB quiet and lacks a held tail (findings 2026-10-25 'paraphonic plucks'); P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher); P102 cannot be compared (unison at Detune 0 is a random draw), P052 X3 attack (9)
+- Library sweep leftovers (findings 2026-10-24): P017 3-7 dB short after the thump (findings 2026-10-25); P018 UNISON-P with Attack 97: attack 13 dB and sustain 4 dB quiet; P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher); P102 cannot be compared (unison at Detune 0 is a random draw), P052 X3 attack (9)
 - Mod matrix: every target takes the modulation in its own dial steps (p2Plugin notes §51, §54); checked on cutoff, pitch, pan and the envelope rates - spot-check osc levels, volume, LFO 1 speed, PW, resonance against captures
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs
-- Capture to confirm: LFO 2's delay (a wait before it starts?)
 - Osc 3's LEVEL2 / VCF / DRIVE depths and FB (depths are guesses beyond LEVEL2 at 8 Hz)
 - FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?
 - Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127

@@ -90,8 +90,11 @@ keytrack and pitch follow ((note − 64)/64). The controller sources (mod wheel,
 and the math sources read 0 until they are wired.
 
 ## 14. LFO 2
-LFO 2 has no shape setting; it is taken as a triangle. Its delay is a fade-in from the first note, over the
-attack time law (provisional, unmeasured).
+LFO 2 has no shape setting; it is taken as a triangle. Its Delay is a wait, not a fade: LFO 2 stays at zero for
+2 x Delay^2 ms after each trigger, then runs at full depth at once, starting from zero going up (measured
+2026-10-25, LFO 2 at ~9.75 Hz on osc 1's pitch, Delay 0-127: the vibrato starts at 0.512, 1.800, 4.050 and
+7.17 s for Delay 16, 30, 45 and 60, full depth within its first cycle; from Delay 75 the wait outlasts a 12 s
+note). The engine had faded it in over the attack-time law, which at Delay 30 gave 0.1 s.
 
 ## 15. Volume, velocity and the VCA
 Measured (findings, "velocity and volume"): the level is one curve of envelope × effective volume, where
@@ -356,12 +359,18 @@ the tick the glide law was measured on.
 The oscillator and noise levels, with their modulation, are taken every control tick (1 ms) and glided per sample;
 they had been read once per audio block, so a modulated level (P004: the filter envelope pulling osc 2 down) moved
 in steps of a block - 5 ms at 256 samples - and its burst at the attack came out late, long and abrupt.
-The instrument's P004 (CT's recording, C3/F3 alternating, osc 1 down) also thumps: the slow part of its output rises
-about +0.03 in the first 10 ms, falls through zero by 40 ms and holds near -0.05 to about 250 ms. Control-voltage
-feedthrough, coupled. Tried, none matching the timing (the instrument's step is gone within ~25 ms): the osc level
-controls' leak into the mix (5 Hz coupling) or after the filter (0.7-3 Hz), and the VCA's control into its output
-(0.5-2 Hz). The hooks stay at zero (LEVEL_FEEDTHROUGH, VCA_FEEDTHROUGH) until a clean measurement - oscillators
-and noise off, one envelope at a time - says which control leaks.
+The thump is the VCA's control leaking into its output (measured 2026-10-25, `thump/`: oscillators and noise off,
+LP12 at cutoff 0, Volume 0-127, amp envelope Attack 0/20/40, Decay 0/34/80, Sustain 0/127, the filter closed and
+open). It is there in every mode with every oscillator at Level 0, scales with Volume (0.148 at 127, 0.058 at 64,
+0.014 at 30, none at 0), does not care about the filter, and follows the amp envelope: a step to +0.148 within
+2 ms at Attack 0, through zero by ~28 ms, an undershoot to -0.040 that lasts past 60 ms; a slow attack makes it a
+dip (-0.065 at Attack 20, -0.072 at 40). Modelled as VCA_FEEDTHROUGH x (VCA gain)^1.2 through two AC couplings
+(2.3 and 2.8 Hz), fitted to those takes by `tools/thump_fit.py`: Attack 0 at Volumes 30-127 and Decays 34-80 land
+within 0.01; Decay 0 comes out too big (0.149 against 0.103) and Attack 20 has a small positive bump before its dip
+that the instrument has not. P001-P015 59.24 -> 49.95, every envelope score down (P008 10.8 -> 3.1, P009 7.9 -> 1.5,
+P003 9.0 -> 1.9); P017's start, which was 16 dB quiet, and its "held tail" at -47 dB were this thump and its
+undershoot. The osc level controls' own leak (LEVEL_FEEDTHROUGH) stays at zero: with the VCA's, nothing is left
+to explain.
 The instrument's osc 2 burst there is also shorter and earlier (peak 0.155 at ~3 ms, gone by ~7 ms) than the
 engine's: likely the filter envelope's short attacks are faster than the amp envelope's table; to measure with
 noise through the filter (a saw's cycles make 2 ms windows useless at low notes).

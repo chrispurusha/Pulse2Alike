@@ -1169,3 +1169,36 @@ instrument's osc 2 line is -31.7 dB both times, level with osc 1's (-31.5), tota
 nothing in PARA-4. The engine silenced it at Level 0 (P010's setting), losing the detuned pair (osc 1 Detune 66,
 osc 2 69) that is the chorus. Fixed, voice gain down 3.5 dB to match (p2Plugin notes §57). P010's score 4.59 -> 4.86
 (a beating pair's harmonics vary with the window); its level is unchanged and was already ~4 dB quiet (open).
+
+## 2026-10-25 - P010's chorus, PARA modulation, LFO 2's delay (`192k/para_width/`, `192k/lfo2/`)
+
+CT: the plug-in's P010 is more chorused than the instrument. Each part checked on the instrument and the engine:
+- PARA-4's two pulses (osc 1 Detune 66, osc 2 69): 130.93/131.18 Hz on both at the fundamental, 654.64/655.50 at
+  the 5th - the detune is exact.
+- Width in PARA-8 at 0/20/64/110/127: harmonics 2-5 within 0.1 dB at 20-110 (the dial reaches PARA voices).
+- LFO 1 on PULSEWIDTH1 in PARA-8: h2/h1 swings 6.0 dB on the instrument, 5.6 in the engine (as in PWM mode).
+- PARA-4, osc 2 a fifth up, LFO 1 at amount 74 on OSC1 PITCH, OSC2 PITCH and PITCH: each target moves just its own
+  half (104 cents pk-pk), PITCH both, on both. (Read off the summed pulse the depths seemed to differ, 22 against
+  11 cents - an artefact of measuring two pulses at once.)
+- LFO 2 on osc 1's pitch: 1.22 Hz / 347 cents at speed 34 and 9.75 Hz at 70 on both.
+- P010 as a 3-note chord (48/52/55), each band's level wobble (std, 100-400/400-1k/1-2.5k/2.5-6k Hz): instrument
+  2.9/3.6/8.2/7.8 dB, engine 2.8/3.4/8.0/7.5 - the movement matches; the engine is 2.9 dB brighter at 2.5-6 kHz
+  (the open "P010 brighter" item), which may be what reads as more chorus.
+- **LFO 2's Delay** was wrong: the instrument waits 2 x Delay^2 ms with LFO 2 at zero, then starts at full depth
+  (p2Plugin notes §14). Fixed: every Delay from 0 to 127 now matches. P001-P015 59.42 -> 59.24 (P004 2.04 -> 1.86);
+  the 11 captured library sounds with LFO 2 delayed 66.92 -> 59.97 (P053 8.24 -> 4.69, P140 6.06 -> 3.89, P042
+  3.49 -> 2.20, P061 4.64 -> 3.84; P016 4.29 -> 4.80 and P055 1.72 -> 2.04, both a few-cent vibrato too small to
+  track in a driven saw - window luck).
+
+## 2026-10-25 - the thump is the VCA's control (`192k/thump/`, `tools/thump_fit.py`)
+
+CT: P017's instrument has an initial thump the plug-in lacks. The instrument's P017 onset is a step: +0.145 within
+2 ms, through zero by 28 ms, undershooting to -0.048 for longer than 60 ms, all of it below 60 Hz (peak 15 Hz). With
+osc 1 at Level 0 it is unchanged (+0.146 PARA-8, +0.147 PWM) - not the oscillators. Oscillators and noise off:
+Volume 127/64/30/0 gives +0.148/+0.058/+0.014/none; Attack 20 and 40 turn it into a dip (-0.065, -0.072); Decay 0
+a short blip (+0.103); Decay 80 and Sustain 127 +0.155 (undershoot -0.029); the filter open +0.158. The VCA's
+control leaking through, coupled twice. Modelled and fitted (p2Plugin notes §43). P017 now starts at -23 dB against
+the instrument's -20 (was -56); 3-7 dB short still. P001-P015 59.24 -> 49.95; the 11 captured library sounds 59.97
+-> 41.95 (P120 17.75 -> 4.07, P046 8.47 -> 3.23, P053 4.69 -> 3.29). Worse: P014's and P086's near-silent windows
+(-78 / -82 dB, the thump's tail where the instrument has a faint tone - inaudible), P018 2.62 -> 3.78 (UNISON-P,
+Attack 97: its attack window 13 dB quiet, its sustain 4 dB quiet - open).

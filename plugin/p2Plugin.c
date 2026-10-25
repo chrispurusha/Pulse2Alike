@@ -74,6 +74,8 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define DECIMATOR_TAPS             (64)
 #define CONTROL_GLIDE_SECONDS      (0.003)   // notes §7
 #define CONTROL_TICK_SECONDS       (0.001)   // notes §10
+#define LFO2_DELAY_MS_PER_STEP2    (2.0)     // notes §14: the wait is 2 x Delay^2 ms
+#define LFO2_START_PHASE           (0.5)
 #define CONTROL_SMOOTH_SECONDS     (0.0003)
 #define KEYTRACK_REFERENCE_NOTE    (64.0)    // measured: keytrack changes nothing at note 64
 #define ENV_CUTOFF_PER_UNIT        (2.0)     // cutoff steps per filter-env amount step from 64, measured
@@ -86,8 +88,10 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC_EVEN_COUPLING_HZ       (20.0)    // notes §44: the asymmetry's DC goes no further
 #define OSC_EVEN                   (0.06)    // notes §44: each oscillator level stage's asymmetry
 #define HW_UNITS                   (0.888)   // the engine's pre-VCA level in the instrument's output units at Volume 40
-#define VCA_FEEDTHROUGH            (0.0)     // notes §43: the VCA's control leaking into its output
-#define VCA_COUPLING_HZ            (2)
+#define VCA_FEEDTHROUGH            (0.040)   // notes §43: the VCA's control leaking into its output (the thump)
+#define VCA_FEEDTHROUGH_POWER      (1.2)
+#define VCA_COUPLING_HZ            (2.3)
+#define VCA_COUPLING2_HZ           (2.8)
 #define LEVEL_FEEDTHROUGH          (0.0)     // notes §43: osc level modulation leaking into the mix as DC
 #define ROUTED_MIX_GAIN            (1.8)     // notes §37: osc 3 routed away from the mix
 #define MIX_SLEW_PER_SECOND        (15000.0) // notes §40: the filter input's slew, fitted to saws
@@ -245,7 +249,7 @@ typedef struct {
     uint8_t      baseDump[P2_DUMP_LENGTH];            // notes §23: main thread; the bytes a save keeps
     char         soundName[P2_SOUND_NAME_LENGTH + 1]; // notes §24: main thread, as the panel shows and a save writes it
     char         patchPath[1024];                     // the file it came from or went to; "" for none
-    double       lfo2Fade;                            // LFO 2's delay, 0..1 since the note
+    double       lfo2Wait;                            // LFO 2's delay: seconds left before it moves
     double       velocity;                            // the last note's, 0..1
     double       mod[MOD_TARGETS];                    // what the mod matrix adds to each target, at the last tick
     tP2Env       ampEnv;
@@ -275,6 +279,7 @@ typedef struct {
     double       feedCoupled;
     double       oscEvenDc[3];
     double       vcaCoupled;
+    double       vcaCoupled2;
     double       hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
     bool         hwValid;
     bool         hwDumpDue;
@@ -579,7 +584,7 @@ static void recover_signal_path(tP2Plugin * p, double acc) {
     memset(p->hissLp, 0, sizeof(p->hissLp));
     memset(p->oscEvenDc, 0, sizeof(p->oscEvenDc));
     p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->level2Coupled = p->driveOut = 0.0;
-    p->feedCoupled = p->vcaCoupled = p->noiseColour = 0.0;
+    p->feedCoupled = p->vcaCoupled = p->vcaCoupled2 = p->noiseColour = 0.0;
 }
 
 static void update_filter(tP2Plugin * p) {
@@ -665,10 +670,15 @@ static void control_tick(tP2Plugin * p, double dt) {
 
     glide_step(p, dt);
     double lfo1       = p2_lfo_step(&p->lfo1, dt, fmin(127.0, fmax(0.0, plain(p, kP2ParamLfo1Speed) + p->mod[eModLfo1Speed])), plain_int(p, kP2ParamLfo1Shape));
-    double lfo2       = p2_lfo_step(&p->lfo2, dt, plain(p, kP2ParamLfo2Speed), 1) * p->lfo2Fade;       // notes §14
+    double lfo2       = 0.0;
 
-    p->lfo2Fade              = fmin(1.0, p->lfo2Fade + (dt / fmax(p2_env_attack_seconds(plain(p, kP2ParamLfo2Delay)), 1e-3)));
-
+    // notes §14: LFO 2 holds at zero through its delay, then starts from the middle going up
+    if (p->lfo2Wait > 0.0) {
+        p->lfo2Wait  -= dt;
+        p->lfo2.phase = LFO2_START_PHASE;
+    } else {
+        lfo2 = p2_lfo_step(&p->lfo2, dt, plain(p, kP2ParamLfo2Speed), 1);
+    }
     // notes §13: the eight slots, summed per target
     double source[25] = {0};
 
@@ -1035,7 +1045,7 @@ static void play_note_on(tP2Plugin * p, uint8_t note, float velocity) {
 // notes §27: the filter envelope's trigger restarts LFO 2 (and its delay) and a fast-shaped LFO 1
 static void triggers(tP2Plugin * p, bool first, bool returning) {
     if (trigger(&p->filterEnv, plain_int(p, kP2ParamEnvFTrigger), first, returning)) {
-        p->lfo2Fade = 0.0;
+        p->lfo2Wait = LFO2_DELAY_MS_PER_STEP2 * 0.001 * plain(p, kP2ParamLfo2Delay) * plain(p, kP2ParamLfo2Delay);
         p2_lfo_note(&p->lfo2, (tP2LfoPhase)plain_int(p, kP2ParamLfo2Phase));
 
         if (plain_int(p, kP2ParamLfo1Shape) < LFO_SLOW_SHAPES_FROM) {
@@ -1237,6 +1247,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         evenHp    = 1.0 - exp(-2.0 * M_PI * OSC_EVEN_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         vcaHp     = 1.0 - exp(-2.0 * M_PI * VCA_COUPLING_HZ / (p->sampleRate * p->oversample));
+    double         vcaHp2    = 1.0 - exp(-2.0 * M_PI * VCA_COUPLING2_HZ / (p->sampleRate * p->oversample));
     double         mixGain   = OSC_INTO_FILTER * ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);
 
     p->filter.leakScale = 1.0 / ((routing != 0) ? ROUTED_MIX_GAIN : 1.0);   // notes §37
@@ -1417,9 +1428,11 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             }
             p->driveOut               = p2_drive_process(&p->drive, (tP2DriveCurve)curve,
                                                          drive + ((!osc3Off && (routing == 3)) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);
-            double vcaLeak  = (VCA_FEEDTHROUGH * p->vca) - p->vcaCoupled;  // notes §43
+            double vcaLeak1 = (VCA_FEEDTHROUGH * pow(p->vca, VCA_FEEDTHROUGH_POWER)) - p->vcaCoupled; // notes §43: coupled twice
+            double vcaLeak  = vcaLeak1 - p->vcaCoupled2;
 
-            p->vcaCoupled            += vcaHp * vcaLeak;
+            p->vcaCoupled            += vcaHp * vcaLeak1;
+            p->vcaCoupled2           += vcaHp2 * vcaLeak;
             double y        = (p->driveOut * p->vca) + vcaLeak;
 
             p->history[p->historyPos] = y;

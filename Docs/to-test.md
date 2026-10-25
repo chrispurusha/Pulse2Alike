@@ -49,3 +49,5 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P006 and P015 by ear after the LEVEL2 law and the sync fix (2026-10-25): osc 2's level under osc 3, the synced tone
 - Legato by ear (2026-10-25): letting go of a key with another held goes back to it; FNON glides only up, FNOFF only back; RET1/RET2 retrigger on the way back
 - P010 by ear (2026-10-25): PARA-4 now plays both pulses per note (osc 2 Level 0 no longer silences the second), the chorus CT heard on the instrument
+- LFO 2's Delay by ear (2026-10-25): a wait of 2 x Delay^2 ms, then the full LFO at once (P053, P140, P042 moved most)
+- The thump by ear (2026-10-25): every fast-attack note now starts with the instrument's low VCA thump (P017, P003, P008, P009, P120)
