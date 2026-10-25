@@ -74,22 +74,32 @@ double p2_env_sustain_level(double value) {
 }
 
 // notes §4: the VCA's curve, of envelope × volume (0..1): the measured volume law, dB relative to full
+#define VCA_KNEE               (0.0029)
+#define VCA_FLOOR              (6.1e-4)   // -64.3 dB
+#define VCA_LEAK_BELOW_KNEE    (1.53e-4)  // -76.3 dB
+
 static const double kVcaDb[17] = {
     -999.0, -47.5, -32.2, -22.5, -16.7, -12.9, -10.1, -8.1, -6.2,
     -4.8,    -3.5,  -2.5,  -1.5,  -1.0,  -0.5,  -0.2, 0.0
 };
 
+// notes §4a: the VCA never closes further than a floor while its control is above a knee, and below the knee
+// leaks a little until the envelope ends
 double p2_vca_gain(double x) {
     int    i;
     double v  = fmin(127.0, fmax(0.0, x * 127.0));
     double t  = table_position(v, &i);
 
-    if (v < 0.25) {
+    if (x <= 0.0) {
         return 0.0;
+    }
+
+    if (x <= VCA_KNEE) {
+        return VCA_LEAK_BELOW_KNEE;
     }
     double lo = (i == 0) ? -80.0 : kVcaDb[i];
 
-    return pow(10.0, (lo + (t * (kVcaDb[i + 1] - lo))) / 20.0);
+    return fmax(VCA_FLOOR, pow(10.0, (lo + (t * (kVcaDb[i + 1] - lo))) / 20.0));
 }
 
 // notes §2: the VCA's response to the envelope - the sustain table, read as a curve of the envelope's level

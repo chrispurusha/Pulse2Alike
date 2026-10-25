@@ -47,6 +47,8 @@ typedef struct {
     bool     wrapped;          // the last p2_dco_next() crossed the main edge
     tP2Shape shape;
     double   readOffset;       // notes §10: where the wave is read against the cycle's timing (synced osc 2)
+    double   edgeCoef;         // notes §11: a pulse's edges, softer than the saw's
+    double   edgeState;
 } tP2Dco;
 
 int32_t p2_pitch_from_midi_note(double note);

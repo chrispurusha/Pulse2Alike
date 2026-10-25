@@ -40,3 +40,14 @@ Measured on the self-oscillating filter's cutoff (amount full, Sustain 0) at Dec
 envelope's time constant is 1.08 times the engine's at every one, while the amp envelope (times to -20 and -30 dB
 at Decay 56 and 63) matches within about 2%. The two share the table, which was measured through the amp envelope;
 the filter envelope's decay and release are scaled by 1.08 (timeScale). Its release is assumed to go with its decay.
+
+## 4a. The VCA's floor and its leak below the knee
+On the instrument a release does not fall away to nothing: a saw through the open filter, amp envelope 0/39/63/50, at
+Volume 48 and at Volume 100 (and at Volume 0 with Amp Velocity 95 at velocity 100, which plays exactly as Volume 48)
+flattens out at the same absolute level, about -65.5 dBFS, whatever the volume, holds it until the envelope is
+nearly done, then steps down to about -77 dBFS until it ends (`vca_env/`, 2026-10-25). The tail is the saw's own
+harmonics, not the thump. So the VCA's gain never falls below VCA_FLOOR (-64.3 dB of full) while envelope x volume
+is above VCA_KNEE (0.0029), and between there and zero it passes VCA_LEAK_BELOW_KNEE (-76.3 dB); at exactly zero
+(the envelope idle) it is silent. The release tails now land within 0.1-2.4 dB of the instrument's (they were 6-34 dB
+short); 3-4 dB low remains 0.2-0.3 s into a release at low volume, and the engine's envelope reaches the knee a
+little before the instrument's (P006: its tail steps down at 0.6 s where the instrument's holds).

@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # The absolute side patch_validate.py leaves out: per patch and window, the engine's level against the instrument's
-# (median third-octave difference, the render gain of 10 restored) and the spectral rms after it, in dB.
+# (median third-octave difference, the render gain of 10 restored) and the spectral rms after it, in dB. Each band is
+# normalised by its window's length: the takes are at 192 kHz and the renders at 96 kHz, and an unnormalised FFT put
+# every engine level ~6 dB quiet until 2026-10-25.
 # usage: patch_levels.py <folder with hw_lfo0_NNN.wav and p2_lfo0_NNN.wav> [first last]
 import os, sys
 
@@ -17,8 +19,8 @@ def levels(folder, n):
     sh, sp = onset(xh, rh), onset(xp, rp)
     out = []
     for _, a, b in WINDOWS:
-        bh = bands(xh[sh + int(a * rh):sh + int(b * rh)], rh)
-        bp = bands(xp[sp + int(a * rp):sp + int(b * rp)], rp)
+        bh = bands(xh[sh + int(a * rh):sh + int(b * rh)], rh) - 20 * np.log10(np.hanning(int(b * rh) - int(a * rh)).sum())
+        bp = bands(xp[sp + int(a * rp):sp + int(b * rp)], rp) - 20 * np.log10(np.hanning(int(b * rp) - int(a * rp)).sum())
         ok = (bh > bh.max() - 40) & np.isfinite(bp)
         d = (bp - bh)[ok]
         out.append((np.median(d), np.sqrt(np.mean((d - np.median(d)) ** 2))))

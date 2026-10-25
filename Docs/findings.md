@@ -1202,3 +1202,46 @@ the instrument's -20 (was -56); 3-7 dB short still. P001-P015 59.24 -> 49.95; th
 -> 41.95 (P120 17.75 -> 4.07, P046 8.47 -> 3.23, P053 4.69 -> 3.29). Worse: P014's and P086's near-silent windows
 (-78 / -82 dB, the thump's tail where the instrument has a faint tone - inaudible), P018 2.62 -> 3.78 (UNISON-P,
 Attack 97: its attack window 13 dB quiet, its sustain 4 dB quiet - open).
+
+## 2026-10-25 - P010's brightness and the pulses' top end (`192k/variants/`, `192k/para_width/`, `tools/pulse_top_check.py`)
+
+P010 taken apart (`tools/patch_variant.py`): 2 s takes differ by up to 7 dB at 2 kHz take to take (its detuned pulse
+pair beats - the DO NOT RE-TRY trap); three 6 s takes averaged over 5 s agree within 1 dB. Against them the engine was
++1.1 dB overall (not the -4 dB the 10-17 reference suggested) and +3.0/+4.0 dB at 4/8 kHz. P010's noise (Level 12)
+is not it: alone, the engine's noise there is 9 dB under the instrument's (at Level 40 within 1 dB - a noise level law
+point to check) and adds nothing measurable. The pulses: filter open, note 48 - the saw matches to 0.4 dB from 1 to
+16 kHz; PWM is +1.4 at 8 kHz and +3 at 16 kHz over its middle; PARA-8 +2.7 / +5.2 more again. Fixed with a pulse
+edge low-pass (p2Dco notes §11) and the paraphonic voices' own (p2Plugin notes §58). P001-P015 49.95 -> 49.74 (P010
+4.50 -> 4.27). Also seen: the engine's triangle is far too pure at note 48 (-5 / -13 / -24 dB at 4 / 8 / 16 kHz) -
+open.
+
+## 2026-10-25 - oscillator level laws, fresh references, and patch_levels' 6 dB (`192k/osc_levels/`, `192k/patches1025/`)
+
+- Osc 1, 2 and 3 alone (saw and PWM/SQR, filter open, note 48, Volume 64), Levels 20/40/64/90/127, engine minus
+  instrument: osc 1 and 2 within 0.4 dB at 20-90 and +0.7..+1.1 at 127 (the instrument squashes a little at full
+  Level, all three alike); osc 3 was +4.8/+2.1/+1.1/+0.8/+0.9 (saw) and +5.4/+2.7/+1.7/+1.3/+1.2 (SQR) - its taper too
+  flat. Refitted (p2Plugin notes §36): now +0.3/-0.3/-0.2/+0.2/+0.9 and +0.9/+0.3/+0.4/+0.7/+1.3. P001 4.85 -> 4.60.
+- The 10-17 reference takes are not all trustworthy: P001's attack window is 7 dB under a fresh take of the same
+  sound (P010's was off too). P001-P015 recaptured today (`192k/patches1025/`, P2_FIXED_LFO=1); use these.
+- `tools/patch_levels.py` read every engine level ~6 dB quiet: the takes are at 192 kHz, the renders at 96 kHz, and
+  its bands summed an unnormalised FFT. Fixed (each window normalised by its length). Against the fresh takes, sustain
+  levels: P001 +1.3, P002 +4.6 (a steady +2.2 dB in 0.2 s windows), P004 +1.5, P007 +0.7, P008 +1.4, P009 +2.1,
+  P010 +0.8, P011 +0.8, P012 +2.1, P013 +0.2, P014 +0.6, P015 -0.1 dB. Releases that look 30 dB short (P009, P012)
+  are the instrument's noise floor (-78..-85 dB) against the engine decaying to silence (renders run without hiss);
+  P003's "sustain -19 dB" is both gated to near silence (-76 against -78..-88). Real: P006's release falls faster
+  (-65 against -58 dB 0.4 s in) and its attack is 2-3 dB loud; P002 +2.2 dB throughout (osc 3 on VCF).
+
+## 2026-10-25 - P006's fade and first moment; the VCA's floor (`192k/vca_env/`, `192k/filter_velocity/`, `tools/patch_trace.py`)
+
+- P006 plays at Volume 0, made audible by velocity (Amp Velocity 95, velocity 100). On the instrument Volume 0 at
+  Amp Velocity 95 plays exactly as Volume 48 (a first take came back silent - the first capture after a sound
+  change can miss its note; `patch_trace.py` and the newer sessions retake an empty take). The low-volume law holds.
+- The release: the instrument's VCA has a floor and a leak below a knee (p2Env notes §4a). Modelled; saw tails within
+  0.1-2.4 dB (were 6-34 dB short). Library set 41.95 -> 40.23 (P086 4.60 -> 3.32); P003 and P014 worse only in
+  their near-silent release windows (-84..-92 dB on both).
+- P006's first moment and its release cannot be judged from one take: two takes of the instrument differ by 3.7-5.9 dB
+  over the first 0.3 s and by up to 13 dB in the release (osc 3 synced and detuned on LEVEL2 - its phase at the
+  note's start), and the engine lies between them throughout, but for its very tail (-54 against -38..-44 dB 0.6 s
+  after the release: the knee reached early).
+- Filter Velocity is exact: a saw through LP24 at cutoff 40, velocity 100 and 127, Filter Velocity 64/81/100/127 -
+  every octave within ~0.5-1 dB.

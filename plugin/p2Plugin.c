@@ -65,8 +65,8 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 
 #define DCO_COUNT                  (3)
 #define LEVEL_SILENT_BELOW         (11.41)  // notes §9
-#define OSC3_LEVEL_FULL            (1.19)   // notes §36: +1.5 dB at level 127
-#define OSC3_LEVEL_EXPONENT        (0.709)
+#define OSC3_LEVEL_FULL            (1.20)   // notes §36: +1.6 dB at level 127
+#define OSC3_LEVEL_EXPONENT        (0.912)
 #define LEVEL_EXPONENT             (0.979)
 #define DETUNE_PITCH_PER_STEP      (2)       // 1/256 semitone units
 #define NOTE_STACK_SIZE            (16)
@@ -172,6 +172,7 @@ enum {
 
 #define PARA8_VOICE_LEVEL        (0.263)    // notes §12: one voice against the same pulse played mono, measured
 #define PARA4_VOICE_LEVEL        (0.243)
+#define PARA_LOWPASS_HZ          (9000.0)   // notes §58
 #define NOISE_FLOOR              (1e-5)     // about -100 dB: the analogue floor
 #define NOISE_LEVEL              (1.4)      // notes §34: measured against the saw and in P006
 #define NOISE_REFERENCE_RATE     (768000.0) // notes §34: the internal rate NOISE_LEVEL was measured at
@@ -280,6 +281,7 @@ typedef struct {
     double       oscEvenDc[3];
     double       vcaCoupled;
     double       vcaCoupled2;
+    double       paraLp;                // the paraphonic voices' own low-pass
     double       hwSent[kP2ParamCount]; // notes §41: what the instrument's edit buffer was last given
     bool         hwValid;
     bool         hwDumpDue;
@@ -584,7 +586,7 @@ static void recover_signal_path(tP2Plugin * p, double acc) {
     memset(p->hissLp, 0, sizeof(p->hissLp));
     memset(p->oscEvenDc, 0, sizeof(p->oscEvenDc));
     p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->level2Coupled = p->driveOut = 0.0;
-    p->feedCoupled = p->vcaCoupled = p->vcaCoupled2 = p->noiseColour = 0.0;
+    p->feedCoupled = p->vcaCoupled = p->vcaCoupled2 = p->paraLp = p->noiseColour = 0.0;
 }
 
 static void update_filter(tP2Plugin * p) {
@@ -1262,6 +1264,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     bool           unison    = unison_mode(p) != 0;
     bool           osc3Off   = unison || (voices > 0);                                // notes §8: the unison and paraphonic modes take osc 3 (and 2) over
     double         paraGain  = (voices == 8) ? PARA8_VOICE_LEVEL : PARA4_VOICE_LEVEL; // notes §12
+    double         paraLp    = 1.0 - exp(-2.0 * M_PI * PARA_LOWPASS_HZ / (p->sampleRate * p->oversample));
     // notes §26: a voice fades in at the amp envelope's attack (Fade does not change it)
     double         fadeStep  = 1.0 / (fmax(1e-4, p2_env_attack_seconds(plain(p, kP2ParamEnvAAttack))) * p->sampleRate * p->oversample);
     // notes §26: a released voice fades only while other keys hold the amp envelope; with every key up, the
@@ -1383,6 +1386,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                 osc += osc_stage(p, 0, mix1 * level1 * p2_dco_next(&p->dco[0]), evenHp) + osc_stage(p, 1, mix2 * amp2 * gate2 * p2_dco_next(&p->dco[1]), evenHp);
             } else {
                 // notes §12: PARA-8 one pulse per voice, PARA-4 two; each fades on its own
+                double paraSum = 0.0;
+
                 for (int v = 0; v < voices; v++) {
                     tP2Voice * pv = &p->voice[v];
 
@@ -1395,9 +1400,12 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                         if (voices == 4) {
                             pulse += pv->fade2 * p2_dco_next(&pv->b);   // notes §12: at osc 1's Level, whatever osc 2's
                         }
-                        osc += PULSE_LEVEL * paraGain * level1 * pulse;     // both of a voice's pulses
+                        paraSum += PULSE_LEVEL * paraGain * level1 * pulse; // both of a voice's pulses
                     }
                 }
+
+                p->paraLp += paraLp * (paraSum - p->paraLp);              // notes §58
+                osc       += p->paraLp;
             }
             // notes §6: oscillators and filter run all the time; the amp envelope is the VCA, after the filter
             osc                       = sources - osc; // notes §39: the oscillators' polarity, as the instrument's

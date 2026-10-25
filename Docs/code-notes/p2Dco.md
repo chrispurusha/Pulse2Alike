@@ -55,3 +55,9 @@ whatever that oscillator's shape.
 its wrap and its hold stay where they were). The plug-in sets it to 0.88 on a synced osc 2 (p2Plugin notes §22): a
 restart that moved the phase itself put a second pulse into osc 2 at 7 semitones over osc 3, where the instrument
 plays one.
+
+## 11. The pulse's edge
+A pulse's edges are softer on the instrument than the saw's reset: against a saw that matches to 0.4 dB from 1 to
+16 kHz, osc 1's pulse came out 1.4 dB bright at 8 kHz and 3 dB at 16 kHz. Pulse and APW go through a one-pole at
+16 kHz (PULSE_EDGE_HZ). On a loud pulse the filter's saturation sharpens the edge again, even open, so normal-mode
+pulses at full Level keep about +2.4 dB at 16 kHz (2026-10-25); the paraphonic voices, 11 dB quieter, take it whole.

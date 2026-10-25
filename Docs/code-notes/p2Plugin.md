@@ -288,7 +288,9 @@ the engine's soft saturation at the filter input squeezes the range a little, so
 16-48 came out 1-1.7 dB loud (and patches mixing two or three oscillators at middle levels 2-4 dB loud). Refitted so
 the engine's OUTPUT follows the instrument's from level 16 to 127, within 0.16 dB (law_level captures).
 Osc 3 in the mix is louder and less tapered than osc 1 and 2 (a saw alone, the same session: +1.5 dB at level 127,
-+2.6 dB at 58 against the shared law; osc 2 matches osc 1): 1.19 x ((Level - 11.41) / 115.59)^0.709. Its control
++2.6 dB at 58 against the shared law; osc 2 matches osc 1): 1.20 x ((Level - 11.41) / 115.59)^0.912 (refitted
+2026-10-25, `osc_levels/`: osc 1, 2 and 3 alone, saw and pulse/square, Levels 20-127 - the exponent was 0.709, which
+left osc 3 4.8-5.4 dB loud at Level 20 and 2-2.7 at 40; now within 0.4 dB of osc 1's own fit at 20-90). Its control
 routings (LEVEL2, VCF, DRIVE) keep the shared law: their depths were measured and fitted with it, and giving them the
 louder one deepened P006's LEVEL2 modulation unmeasured.
 
@@ -524,3 +526,10 @@ on the instrument osc 2's Level changes nothing (PARA-4, osc 2 a semitone up: it
 127, level with osc 1's). The engine had scaled the second pulse by osc 2's Level, so P010 (osc 2 Level 0, Detune
 69 against osc 1's 66) played one pulse a voice where the instrument plays a beating pair - the chorus CT heard.
 PARA-4's voice gain is 0.243 (from 0.363) now that both pulses always sound: -27.0 dBFS against -27.2.
+
+## 58. The paraphonic voices' own low-pass
+Paraphonic pulses lose more top end on the instrument than osc 1's normal pulse: against PWM mode (filter open,
+note 48, widths 20/64/110 alike) 0.4 dB more at 2 kHz, 1.3 at 4 kHz, 2.7 at 8 kHz, 5.2 at 16 kHz - their own path to
+the mixer. The sum of the voices goes through a one-pole at 9 kHz (PARA_LOWPASS_HZ); with the pulses' edge (p2Dco
+notes §11) PARA-8's top octave lands within 0.7 dB of its middle, as the instrument's (2026-10-25). P010, averaged over
+three 6 s takes: 4 and 8 kHz +2.3/+1.5 dB against an overall +1.1 (they were +3.0/+4.0).

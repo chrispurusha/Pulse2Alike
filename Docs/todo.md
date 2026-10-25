@@ -7,13 +7,14 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
 - Sync and LEVEL2 are in (p2Plugin notes §22, §52). Left: LEVEL2 below osc 2 Level 101 1.5-4 dB loud (findings 2026-10-25, a richer form needed); the synced pulse against osc 3's square (0.78); P046, P073, P160, P228 slightly worse with it
 - LEVEL2 (P006, P015): the coupled linear law is fitted (p2Plugin notes §52); CT to check by ear. Left: the engine's slew and loop saturation compress loud fast signals more than the instrument (2 kHz LEVEL2 takes, open triangle) - refit with the filter (see the Filter item)
-- P010 (CT 2026-10-25): more chorused on the plug-in - detune, width, PWM, pitch routing and LFO 2 all match on the instrument (findings 2026-10-25); a chord's wobble matches, but the engine is ~3 dB bright at 2.5-6 kHz - chase that; also ~4 dB quiet
+- P010 (CT 2026-10-25): more chorused - all its parts match on the instrument; its top end fixed (findings 2026-10-25, 'brightness') - CT to recheck by ear
 - P002 (CT): close; perhaps the start of the note (attack) - not certain
+- P002: a steady +2.2 dB loud against a fresh take (osc 3 on VCF at Level 51, cutoff 13) - the VCF routing's gain into the filter?
 - P003 (CT 2026-10-25): better but still not close - with the FUZZ items under Drive
-- P001: osc 1 and osc 3 alone, filter open, are 1.1-1.4 dB and 3.3 dB louder in the engine at every note - measure the oscillators' level laws across their range (P001 sounds much better since the pulse fixes, CT)
+- P001: osc 3's level law refitted (findings 2026-10-25); its release ~3.6 dB short
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
-- P006: 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
+- P006 (findings 2026-10-25 'fade'): its first moment and release are within the instrument's take-to-take spread (LEVEL2's phase); the very tail steps down early (the VCA knee reached ~0.1 s before the instrument's) - CT to recheck by ear; 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
 - Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
 - The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
 - Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
@@ -31,10 +32,14 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The drive-on output gate's thresholds were measured with FUZZ; check one TUBE point
 
 ## Rig
+- Regression references: use `192k/patches1025/` (fresh 2026-10-25); the 10-17 takes in `patches/` misled on P001 and P010
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture
 - Read INPUT GAIN off the panel and record it with the EXT captures; sweep the EXT level per step
 
 ## Oscillators
+- The triangle (findings 2026-10-25): at Level 127 the filter's open-cutoff saturation rounds it (h41-61 15-22 dB under its own Level-40 shape; the instrument keeps 12 dB/oct to h61), and the instrument's own shape has weaker low odd harmonics (h3 -25, ideal -19) and even ones at 6-10 dB/oct (h16 -57, h32 -67: an asymmetry or a small step at the reset) - rework the open filter's saturation with the pulses' top end
+- Normal-mode pulses at full Level keep +2.4 dB at 16 kHz: the filter's saturation re-sharpens the softened edge (p2Dco notes §11)
+- The noise at Level 12: 9 dB under the instrument's (within 1 dB at 40) - its level law low down
 - Osc 3's square against a synced osc 2 (polarity audit, findings 2026-10-24): where its edges sit relative to the sync point
 - P014 3.6 -> 4.1 after APW's polarity fix (APW mixed with other sources) - check APW's own shape against its two-cycle period
 - Osc 3 EXT is not built: the plug-in has no audio input - a side-chain input, as G2Alike's
@@ -50,6 +55,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
 
 ## Engine
+- The VCA's release tail (p2Env notes §4a): 3-4 dB low 0.2-0.3 s into a release at low volume; the knee reached a little early
 - Library sweep leftovers (findings 2026-10-24): P017 3-7 dB short after the thump (findings 2026-10-25); P018 UNISON-P with Attack 97: attack 13 dB and sustain 4 dB quiet; P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher); P102 cannot be compared (unison at Detune 0 is a random draw), P052 X3 attack (9)
 - Mod matrix: every target takes the modulation in its own dial steps (p2Plugin notes §51, §54); checked on cutoff, pitch, pan and the envelope rates - spot-check osc levels, volume, LFO 1 speed, PW, resonance against captures
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs

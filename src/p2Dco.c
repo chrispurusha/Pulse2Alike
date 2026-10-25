@@ -65,12 +65,15 @@ double p2_dco_pulse_fraction(int32_t width) {
     return (double)(((uint32_t)(width + 0x200) * (uint32_t)width) >> 15) / 65536.0;
 }
 
+#define PULSE_EDGE_HZ    (16000.0)   // notes §11
+
 void p2_dco_set(tP2Dco * dco, int32_t pitch, int32_t width, tP2Shape shape, double sampleRate) {
     uint32_t period = p2_dco_period_ticks(pitch);
 
     dco->increment     = (P2_DCO_CLOCK_HZ / (double)period) / sampleRate;
     dco->pulseFraction = p2_dco_pulse_fraction(width);
     dco->shape         = shape;
+    dco->edgeCoef      = 1.0 - exp(-2.0 * M_PI * PULSE_EDGE_HZ / sampleRate);
 }
 
 // notes §5
@@ -168,6 +171,11 @@ float p2_dco_next(tP2Dco * dco) {
             out  = -out;            // notes §6: high for the width's fraction once the mix has inverted it
             break;
         }
+    }
+
+    if ((dco->shape == eP2ShapePulse) || (dco->shape == eP2ShapeApw)) {
+        dco->edgeState += dco->edgeCoef * (out - dco->edgeState);   // notes §11
+        out             = dco->edgeState;
     }
     dco->phase  += dt;
     dco->wrapped = false;
