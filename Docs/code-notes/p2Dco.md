@@ -49,3 +49,9 @@ below the master is cut short by the next restart.
 rate, for the whole first of each pair of cycles (the cycle counter's parity) - with polyBLEP steps at its edges.
 It is X1-/X3-PWM's other input (p2Plugin notes §8): the instrument gates osc 2 with the other oscillator's timing,
 whatever that oscillator's shape.
+
+## 10. The read offset
+`readOffset` reads the wave that far round the cycle from where its timing is (its edges for sync's first-edge rule,
+its wrap and its hold stay where they were). The plug-in sets it to 0.88 on a synced osc 2 (p2Plugin notes §22): a
+restart that moved the phase itself put a second pulse into osc 2 at 7 semitones over osc 3, where the instrument
+plays one.

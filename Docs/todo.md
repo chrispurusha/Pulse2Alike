@@ -5,8 +5,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 ## First
 - P012 (CT 2026-10-23): resonance tone higher on the instrument - measured: the instrument's filter has drifted up since 10-17 (+0.6 semitone at cutoff 0 to +0.1 at 88; findings 2026-10-23), the law matches 10-17. NEXT: CT runs TUNE FILTER on the instrument, then re-measure cutoff 0/40/64/88 at note 60
 - P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
-- Filter: re-score the near-cutoff 3rd harmonic (`postsat/`, -46 to -34 dB rising with level) against the refitted ladder stages (p2Filter notes §9) - it was 10-25 dB short with the loop-input tanh alone
-- LEVEL2: a law is fitted and better everywhere except P006 (findings 2026-10-24 'LEVEL2 measured for a law'): first settle, under SYNC, where osc 2's pulse sits on osc 3's cycle, where the saw resets against the timer's main edge, and the pulse's polarity there (`pulse_phase_session.py`: the instrument's pulse is a bump halfway along the saw) - then adopt the law and recheck P006/P015
+- Sync and LEVEL2 are in (p2Plugin notes §22, §52). Left: osc 2 Level 64 on LEVEL2 2-4 dB loud; the synced pulse against osc 3's square (0.78); P046, P073, P160, P228 slightly worse with it
 - LEVEL2 (P006, P015): the coupled linear law is fitted (p2Plugin notes §52); CT to check by ear. Left: the engine's slew and loop saturation compress loud fast signals more than the instrument (2 kHz LEVEL2 takes, open triangle) - refit with the filter (see the Filter item)
 - P010 (CT): still brighter on the plug-in; osc 1 alone, filter open, different - PARA-4 with LFO 2 on PW1 (amount 94) and PW2, so the width modulation's depth and the paraphonic voices
 - P002 (CT): close; perhaps the start of the note (attack) - not certain
@@ -53,7 +52,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Library sweep leftovers (findings 2026-10-24): P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher), P017 PARA-8 with the D-D loop (14), P102 UNISON-P at Detune 0 (10: the voices' phases?), P052 X3 attack (9)
 - Mod matrix: every target takes the modulation in its own dial steps (p2Plugin notes §51, §54); checked on cutoff, pitch, pan and the envelope rates - spot-check osc levels, volume, LFO 1 speed, PW, resonance against captures
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs
-- Capture to confirm: SNG2/RET2 restart from zero, RET3's exception, FNON/FOFF glide, LFO 2's delay (a wait before it starts?)
+- Capture to confirm: LFO 2's delay (a wait before it starts?)
 - Osc 3's LEVEL2 / VCF / DRIVE depths and FB (depths are guesses beyond LEVEL2 at 8 Hz)
 - FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?
 - Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127

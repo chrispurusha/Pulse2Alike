@@ -134,7 +134,9 @@ void p2_dco_restart(tP2Dco * dco) {
 
 float p2_dco_next(tP2Dco * dco) {
     // notes §8: a held slave sits at the end of its cycle - for a pulse, just past its edge
-    double t  = dco->held ? ((dco->shape == eP2ShapePulse) ? 0.0 : 0.999999) : dco->phase;
+    double t  = dco->held ? ((dco->shape == eP2ShapePulse) ? 0.0 : 0.999999) : (dco->phase + dco->readOffset);
+
+    t -= (t >= 1.0) ? 1.0 : 0.0;
     double dt = dco->held ? 0.0 : dco->increment;
     double out;
 

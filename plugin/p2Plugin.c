@@ -92,15 +92,14 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define ROUTED_MIX_GAIN            (1.8)     // notes §37: osc 3 routed away from the mix
 #define MIX_SLEW_PER_SECOND        (15000.0) // notes §40: the filter input's slew, fitted to saws
 #define MIX_COUPLING_HZ            (5.0)     // notes §37: the mix reaches the filter AC-coupled
-#define OSC3_TO_LEVEL2             (1.0)     // per unit of osc 3 at full level - notes §25
-#define LEVEL2_MEASURED            (1)       // notes §52: 1 the measured law; 0 the linear one it replaced
-#define LEVEL2_RISE                (46.4)    // notes §52: per unit of osc 3, rising, at full depth
-#define LEVEL2_FALL                (86.2)    //   and falling
-#define LEVEL2_ZERO                (-4.2)    //   depth = ((level - LEVEL2_ZERO) / (127 - LEVEL2_ZERO))^LEVEL2_POWER
-#define LEVEL2_POWER               (3.42)
-#define LEVEL2_COUPLING_S          (0.0080)  //   the path's AC coupling, a time constant
-#define LEVEL2_LAG_S               (0.0003)  //   and its low-pass
-#define LEVEL2_CEILING             (3.0)     //   osc 2's level can rise no higher
+#define LEVEL2_DEPTH_FULL          (4.02)    // notes §52: nepers per unit of osc 3, from osc 3's Level LEVEL2_DEPTH_FULL_AT up
+#define LEVEL2_DEPTH_FULL_AT       (59.1)
+#define LEVEL2_DEPTH_POWER         (2.73)    //   below it, (Level / LEVEL2_DEPTH_FULL_AT)^LEVEL2_DEPTH_POWER of it
+#define LEVEL2_FROM                (50.0)    //   and x (127 - it) / (osc 2's Level - it): a lower osc 2 swings further
+#define LEVEL2_COUPLING_S          (0.0274)  //   the path's AC coupling, a time constant
+#define LEVEL2_HEADROOM            (-0.075)  //   nepers over Level 127's gain osc 2 can rise to,
+#define LEVEL2_KNEE                (3.94)    //   reached through a soft minimum this sharp
+#define SYNC_READ_OFFSET           (0.88)    // notes §22: synced, osc 2's wave read this far round its cycle
 #define OSC3_COUPLING_HZ           (14.0)
 #define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
 #define FAULT_LEVEL                (16.0)    // notes §47: 24 dB over full scale, far past any sound
@@ -227,7 +226,6 @@ typedef struct {
     double       filterCoupled;
     double       osc3Coupled;         // notes §25: the coupling capacitor on osc 3\'s control path
     double       level2Coupled;       // notes §52: osc 3 on LEVEL2, its own coupling
-    double       level2Lag;
     uint32_t     voiceClock;          // allocation order, for stealing the most recent
 
     uint8_t      notes[NOTE_STACK_SIZE];
@@ -469,6 +467,21 @@ static double level_gain(const tP2Plugin * p, uint32_t id) {
     return pow(x, LEVEL_EXPONENT);
 }
 
+// notes §52: LEVEL2's depth, nepers per unit of osc 3 - set by osc 3's Level, deeper the lower osc 2 is set
+static double level2_swing(const tP2Plugin * p) {
+    double l3 = fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc3Level) + p->mod[eModOsc3Level]));
+    double l2 = fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc2Level) + p->mod[eModOsc2Level]));
+
+    return LEVEL2_DEPTH_FULL * pow(fmin(1.0, l3 / LEVEL2_DEPTH_FULL_AT), LEVEL2_DEPTH_POWER) * (127.0 - LEVEL2_FROM) / fmax(1.0, l2 - LEVEL2_FROM);
+}
+
+// notes §52: how far, in nepers, osc 2 can rise over its own level - about up to Level 127's gain
+static double level2_ceiling(const tP2Plugin * p) {
+    double l2 = fmin(127.0, fmax(13.0, plain(p, kP2ParamOsc2Level) + p->mod[eModOsc2Level]));
+
+    return LEVEL2_HEADROOM - (0.864 * log((l2 - 12.6) / 114.4));   // the oscillators' own level law (§36)
+}
+
 // notes §36: osc 3 IN THE MIX is louder and less tapered than osc 1 and 2; its control routings keep the shared law,
 // which their depths were measured with
 static double osc3_mix_gain(const tP2Plugin * p) {
@@ -566,7 +579,7 @@ static void recover_signal_path(tP2Plugin * p, double acc) {
     memset(p->noiseLp, 0, sizeof(p->noiseLp));
     memset(p->hissLp, 0, sizeof(p->hissLp));
     memset(p->oscEvenDc, 0, sizeof(p->oscEvenDc));
-    p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->level2Coupled = p->level2Lag = p->driveOut = 0.0;
+    p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->level2Coupled = p->driveOut = 0.0;
     p->feedCoupled = p->vcaCoupled = p->noiseColour = 0.0;
 }
 
@@ -973,10 +986,12 @@ static void remove_note(tP2Plugin * p, uint8_t note) {
 }
 
 // notes §3
-// notes §11: SNG1/SNG2 trigger on a fresh note only (no other key held), RET1-3 on every note; SNG2 and RET2
-// restart from zero, the others from wherever the envelope is
-static bool trigger(tP2Env * e, int mode, bool fresh) {
-    if ((mode <= 1) && !fresh) {
+// notes §11: SNG1/SNG2 trigger on a fresh note only (no other key held), RET1-3 on every new note and RET1/RET2 also
+// on a return to a held key; SNG2 and RET2 restart from zero, the others from wherever the envelope is
+static void triggers(tP2Plugin * p, bool first, bool returning);
+
+static bool trigger(tP2Env * e, int mode, bool fresh, bool returning) {
+    if (((mode <= 1) && !fresh) || (returning && (mode != 2) && (mode != 3))) {
         return false;
     }
 
@@ -1002,9 +1017,9 @@ static void play_note_on(tP2Plugin * p, uint8_t note, float velocity) {
     p->notes[p->noteCount++] = note;
     p->lastNote              = note;
 
-    // notes §17: OFF jumps, NORM always glides, the fingered modes glide only on a legato note
+    // notes §17: OFF jumps, NORM always glides, FNGR and FNON glide on a legato press, FNOFF only on a return
     int  mode  = plain_int(p, kP2ParamGlideMode);
-    bool glide = p->glideKnown && ((mode == 1) || ((mode >= 2) && !first) || p->arpGlide);
+    bool glide = p->glideKnown && ((mode == 1) || (((mode == 2) || (mode == 3)) && !first) || p->arpGlide);
 
     if (!glide) {
         p->glidePitch = (int64_t)note * 256;
@@ -1015,9 +1030,12 @@ static void play_note_on(tP2Plugin * p, uint8_t note, float velocity) {
     if (para_voices(p) > 0) {
         para_note_on(p, note, para_voices(p));
     }
+    triggers(p, first, false);
+}
 
-    // notes §27: the filter envelope's trigger restarts LFO 2 (and its delay) and a fast-shaped LFO 1
-    if (trigger(&p->filterEnv, plain_int(p, kP2ParamEnvFTrigger), first)) {
+// notes §27: the filter envelope's trigger restarts LFO 2 (and its delay) and a fast-shaped LFO 1
+static void triggers(tP2Plugin * p, bool first, bool returning) {
+    if (trigger(&p->filterEnv, plain_int(p, kP2ParamEnvFTrigger), first, returning)) {
         p->lfo2Fade = 0.0;
         p2_lfo_note(&p->lfo2, (tP2LfoPhase)plain_int(p, kP2ParamLfo2Phase));
 
@@ -1025,11 +1043,25 @@ static void play_note_on(tP2Plugin * p, uint8_t note, float velocity) {
             p2_lfo_note(&p->lfo1, (tP2LfoPhase)plain_int(p, kP2ParamLfo1Phase));
         }
     }
-    trigger(&p->ampEnv, plain_int(p, kP2ParamEnvATrigger), first);
+    trigger(&p->ampEnv, plain_int(p, kP2ParamEnvATrigger), first, returning);
 }
 
 static void release_note(tP2Plugin * p, uint8_t note) {
+    bool sounding = (p->noteCount > 0) && (p->notes[p->noteCount - 1] == note);
+
     remove_note(p, note);
+
+    // notes §17: the sounding key let go with others held - back to the newest of them; NORM, FNGR and FNOFF glide there
+    if (sounding && (p->noteCount > 0)) {
+        int mode = plain_int(p, kP2ParamGlideMode);
+
+        p->lastNote = p->notes[p->noteCount - 1];
+
+        if ((mode != 1) && (mode != 2) && (mode != 4)) {
+            p->glidePitch = (int64_t)p->lastNote * 256;
+        }
+        triggers(p, false, true);
+    }
     update_dcos(p);
     para_note_off(p, note);
 
@@ -1192,13 +1224,15 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     int32_t        shape1    = plain_int(p, kP2ParamOsc1Shape);
     double         mix1      = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
     int32_t        shape2    = plain_int(p, kP2ParamOsc2Shape);
-    double         mix2      = (shape2 == 0) ? -PULSE_LEVEL : ((shape2 >= SHAPE_X3PWM) ? (PULSE_LEVEL * XPWM_SWING) : ((shape2 == 2) ? -1.0 : 1.0));   // notes §39: osc 2's pulse and triangle the other way up
+    bool           synced    = plain_int(p, kP2ParamOsc3Sync) != 0;
+    // notes §39, §22: osc 2's pulse the other way up from osc 1's - and, synced, the way osc 1's is
+    double         mix2      = (shape2 == 0) ? (synced ? PULSE_LEVEL : -PULSE_LEVEL) : ((shape2 >= SHAPE_X3PWM) ? (PULSE_LEVEL * XPWM_SWING) : ((shape2 == 2) ? -1.0 : 1.0));   // notes §39: osc 2's pulse and triangle the other way up
     int32_t        shape3    = plain_int(p, kP2ParamOsc3Shape);
     bool           feedback  = shape3 == 4;
     double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         coupling2 = 1.0 - exp(-1.0 / (LEVEL2_COUPLING_S * p->sampleRate * p->oversample));
-    double         lag2      = 1.0 - exp(-1.0 / (LEVEL2_LAG_S * p->sampleRate * p->oversample));
-    double         depth2    = pow(fmax(0.0, fmin(127.0, plain(p, kP2ParamOsc3Level) + p->mod[eModOsc3Level]) - LEVEL2_ZERO) / (127.0 - LEVEL2_ZERO), LEVEL2_POWER);
+    double         swing2    = level2_swing(p);
+    double         ceiling2  = level2_ceiling(p);
     int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
     double         mixHp     = 1.0 - exp(-2.0 * M_PI * MIX_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
@@ -1286,7 +1320,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             // notes §22: osc 2 starts another cycle only if that cycle's first edge comes before osc 3's next one
             double first2  = (p->dco[1].shape == eP2ShapePulse) ? (1.0 - p->dco[1].pulseFraction) : 0.5;
 
-            p->dco[1].syncHold = sync && (((1.0 - p->dco[2].phase) * p->dco[1].increment) < (first2 * p->dco[2].increment));
+            p->dco[1].readOffset = sync ? SYNC_READ_OFFSET : 0.0;
+            p->dco[1].syncHold   = sync && (((1.0 - p->dco[2].phase) * p->dco[1].increment) < (first2 * p->dco[2].increment));
 
             if (sync && p->dco[2].wrapped) {          // notes §22: osc 3's edge restarts osc 2
                 p2_dco_restart(&p->dco[1]);
@@ -1294,12 +1329,12 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             // notes §34: the floor a self-oscillation starts from; band-limited, so the level is the same at any rate
             double white   = band_limit(band_limit((noise + NOISE_FLOOR) * white_noise(p), noiseLp, &p->noiseLp[0]), noiseLp, &p->noiseLp[2]);
 
-            p->noiseColour    += colour * (white - p->noiseColour);
+            p->noiseColour      += colour * (white - p->noiseColour);
             double sources = p->noiseColour;
             double osc     = 0.0;                             // the oscillators alone
             double cv3     = osc3 - p->osc3Coupled;           // notes §25
 
-            p->osc3Coupled    += coupling * cv3;
+            p->osc3Coupled      += coupling * cv3;
             double amp2    = level2;
 
             if (osc3Off) {
@@ -1310,16 +1345,11 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
             } else if (routing == 0) {
                 osc += osc_stage(p, 2, osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0), evenHp);
             } else if (routing == 1) {
-                // notes §52: osc 3 inverted and AC coupled, then osc 2's level times (1 + depth x it), floored
+                // notes §52: osc 3 inverted and AC coupled; osc 2's level times exp(swing x it), softly no higher than the ceiling
                 double l2 = -osc3 - p->level2Coupled;
 
                 p->level2Coupled += coupling2 * l2;
-                p->level2Lag     += lag2 * (l2 - p->level2Lag);
-                double k2 = (p->level2Lag >= 0.0) ? LEVEL2_RISE : LEVEL2_FALL;
-
-                amp2              = LEVEL2_MEASURED
-                                    ? fmin(LEVEL2_CEILING, fmax(0.0, level2 * (1.0 + (k2 * depth2 * p->level2Lag))))
-                                    : fmax(0.0, level2 + (level3 * cv3 * OSC3_TO_LEVEL2));
+                amp2              = level2 * exp(-log(exp(-LEVEL2_KNEE * swing2 * l2) + exp(-LEVEL2_KNEE * ceiling2)) / LEVEL2_KNEE);
             } else if (routing == 2) {
                 p2_filter_set(&p->filter, fmin(127.0, fmax(0.0, p->cutoffNow + (level3 * cv3 * OSC3_TO_CUTOFF_STEPS))),
                               fmin(127.0, fmax(0.0, p->resonance + p->mod[eModResonance])), (tP2FilterMode)plain_int(p, kP2ParamFilterType));

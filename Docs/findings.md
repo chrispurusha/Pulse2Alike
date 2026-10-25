@@ -1097,3 +1097,50 @@ Osc 2 a saw at 2093 Hz, osc 3 on LEVEL2 at 16.35 Hz (`tools/level2_session.py`),
   first-edge rule already uses for the saw), but then the pulse comes out as a dip, against the polarity audit.
   So under sync the pulse's place, the saw's reset phase and the polarity interact in a way not yet modelled; the
   old law, fitted to P006 itself, stays until that is settled.
+
+## 2026-10-25 - under sync, where osc 2 sits against osc 3 (`192k/sync_phase/`, `tools/sync_phase_session.py`, `sync_phase_fit.py`)
+
+Osc 2 synced at osc 3's pitch (note 48), one cycle folded:
+- **A narrow pulse (PW 40) synced, alone, is the other way up from the engine** (correlation 0.995 inverted, 0.093 as
+  is) - free running, the polarity audit found the engine's flipped pulse right (0.999). The same with osc 3's square
+  beside it (0.928 inverted).
+- **A saw synced alone** matches as is (0.999).
+- Fitted as osc 3's wave plus osc 2's shifted by phi (95-97 % of each fold explained), osc 2's cycle starts after osc
+  3's saw reset: narrow pulse 0.81, PW 100 0.89, against osc 3's square 0.41 (or 0.91, the square being ambiguous by
+  half); osc 2's saw resets 0.19 after osc 3's.
+- No single convention (a sync point, the pulse high first or last in its cycle, the saw resetting at the main or the
+  half-cycle edge) gives both the pulses' and the saw's offsets: the instrument's synced oscillator has more structure
+  than the engine's restart - the edge budget and waits of the sync timing (p2Plugin notes §22) are the place to look.
+  Until this is settled the LEVEL2 law stays out (it hinges on where P006's synced pulse sits on osc 3's ramp).
+
+## 2026-10-25 - sync settled enough for LEVEL2 (`tools/sync_phase_grid.py`)
+
+Free and synced takes of the same pulse on the instrument alone: synced, the narrow part points the other way (0.993
+inverted). Three freedoms put in the engine and scored on the six synced takes and P006's LEVEL2 path: the synced
+pulse's sense, where in its cycle osc 2 sits after the restart, osc 3's saw reset shifted half a cycle. Best: the pulse
+flipped, osc 2 0.80-0.92 round (0.88 kept), no saw shift - mean correlation 0.74 -> 0.93. As a phase restart it put a
+second pulse in at +7 semitones; as an offset of where the wave is read, the timing rules unchanged, it does not.
+With it the fitted LEVEL2 law goes in: P006's LEVEL2 path -1.6/-0.6 dB (old law +3.5/+4.6), P001-P015 60.43 -> 59.35
+(P015 5.43 -> 3.92), 21 library sounds using sync or LEVEL2 147.4 -> 141.0 (P024 16.1 -> 12.0; P046, P073, P160, P228
+0.8-1.6 worse).
+
+## 2026-10-25 - legato: returns, glide modes, triggers (`192k/legato/`, `tools/legato_session.py`)
+
+48 held, 55 pressed at 0.5 s and let go at 1.0 s. The engine did not go back to 48 at all - it stayed on 55 (fixed).
+Glide at rate 70: NORM and FNGR glide up and back; FNON glides up and jumps back; FNOFF jumps up and glides back; OFF
+jumps both ways. Amp envelope (decay 30, sustain 30): SNG1/SNG2 never restart; RET1/RET2 restart on the press and on
+the return; RET3 on the press only. The engine now matches every case (pitch within 0.1-0.2 semitone). FNGR, FNON and
+FNOFF are in 56 library sounds, RET2/RET3/SNG2 in about 70.
+
+## 2026-10-25 - BP12 and HP12 resonance (`192k/bphp_res/`, `tools/bphp_resonance_session.py`)
+
+The noise through BP12 and HP12 at cutoff 64, resonance 41/60/80/92, against resonance 0: the engine within 1-2 dB of
+the instrument around the peak at every resonance (BP12's peak at 92 2-3.6 dB low just below it). HP12's stopband at
+200 Hz is 2.6-5 dB high at resonance 41-80, far under the peak. No change.
+
+## 2026-10-25 - the near-cutoff distortion, re-scored (`postsat/`)
+
+A triangle at note 60 through LP24 at cutoff 45 (osc 1 Level 40-127, MIX and LEVEL2 routing, Volume 40 and 100) -
+not used in the filter's refit: the engine's 3rd harmonic is now within 0.6 dB rms of the instrument's over all 16
+takes (mean +0.3; -46 to -34 dB, rising with level and the routing gain as the instrument's does) - it was 10-25 dB
+short before the ladder stages (p2Filter notes §9). The 2nd harmonic within 1-6 dB.

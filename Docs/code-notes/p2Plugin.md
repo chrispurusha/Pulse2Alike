@@ -111,6 +111,7 @@ least one unit a millisecond (3.9 semitones a second), which is all the slow rat
 k(rate) × 2^17 = 2^(17.129 − 0.12697 × (rate + 10)) up to rate 74, then 265.16 − 2.0916 × (rate + 10). Against
 the captured glides (48 → 60 at rates 48-112) this law is within 0.01-0.06 semitone rms. OFF jumps, NORM always
 glides, and FNGR glides only on a legato note. FNON and FOFF are taken as FNGR until what separates them is
+[superseded 2026-10-25, below]
 measured.
 
 ## 18. The math destinations and sources
@@ -152,7 +153,11 @@ so the eight come out near the measured level, about 5.5 dB below one pulse at f
 as usual alongside.
 
 ## 22. Sync
-OSC3 SYNC>OSC2 makes osc 3 the master of osc 2: osc 3's main edge restarts osc 2. Between restarts osc 2 starts a
+OSC3 SYNC>OSC2 makes osc 3 the master of osc 2: osc 3's main edge restarts osc 2. Synced, osc 2's wave is read 0.88
+of a cycle round from its timing (p2Dco notes §10) and its pulse is the other way up from a free-running one (the
+narrow part a bump, not a dip: measured on the instrument alone, free against synced, 0.993). Fitted 2026-10-25 to
+six synced takes at osc 3's pitch - osc 2's pulse and saw alone and against osc 3's saw and square (mean correlation
+0.74 -> 0.93) - and kept by P006's LEVEL2 path (level -1.6/-0.6 dB) and P015. Between restarts osc 2 starts a
 new cycle only if that cycle's first edge (a pulse's rise, the saw's half-cycle) comes before osc 3's next edge;
 otherwise it holds (p2Dco notes §8). Measured 2026-10-24 (findings): with osc 2 at +7, +12 and +19 semitones a saw
 plays 1, 2 and 3 ramps per master cycle and a pulse 1, 1 and 3 pulses - the 10-17 "one cycle, then hold" was +7's
@@ -371,8 +376,8 @@ so it all happens before the VCA.
   triangle keeps a triangle's own harmonics at every level 30-127 (3rd -20.9 to -18.9 dB, level rising 16 dB), while
   the stage rounded it to a near-sine at 120-127 (3rd -37 to -47 dB, 3 dB of compression) - P006's osc 1, "very
   different" (CT). So the 3rd harmonic appears only near the cutoff: the filter's stages saturating on their own
-  input, as an OTA ladder does, not a stage after it. The stage is removed; the near-cutoff 3rd harmonic is now
-  10-25 dB short until the filter's stages saturate - tried the same day and not kept, since it pulls the
+  input, as an OTA ladder does, not a stage after it. The stage is removed; the filter's ladder stages (p2Filter
+  notes §9) now give the near-cutoff 3rd harmonic within 0.6 dB rms (2026-10-25); it was 10-25 dB short until the filter's stages saturate - tried the same day and not kept, since it pulls the
   self-oscillation flat (findings 2026-10-23); a refit of the filter's law with it is in the todo. The loop's saturation also rounds the open triangle
   (3rd -21.9 at 120 against -20.1 without), to be refitted with it.
 Triangle test within ~2 dB (2nd) and ~3 dB (3rd); P006's osc 1 alone - CT heard the hardware "PWM-like" - now has
@@ -451,15 +456,15 @@ At the old law P004's osc 2, which gets the key back through PITCH FLW -> M-ACCU
 (127), tracked 0.958 semitone per key - half a semitone flat per octave; the instrument tracks exactly 1, which is
 weight 128 at d 45 x 256 at d 63 x 2 semitones per key at full scale.
 
-## 52. LEVEL2: AC coupled, linear, deep
-Osc 3 routed to LEVEL2 sets osc 2's level as level2 x (1 + K x depth x c), floored at 0 and capped at LEVEL2_CEILING:
-c is osc 3 inverted, AC coupled (8.0 ms) and lagged (0.3 ms); depth = ((level - LEVEL2_ZERO)/(127 - LEVEL2_ZERO))^3.42;
-K 46.4 while c rises, 86.2 while it falls. Fitted 2026-10-23 to steps (osc 3 a 16 Hz square, osc 2 at 2 kHz) at
-osc 3 levels 12-58, rms 0.09 (findings, "LEVEL2"). A first fit as an exponential, the same day, read the coupling's
-decay as a curve and was replaced. `LEVEL2_MEASURED` 0 restores the old linear law (§25).
-Open: in those 2 kHz takes the engine's filter-input slew (§40) and loop saturation compress loud osc 2 harder than
-the instrument (its peak 1.73 x where the engine without them follows the fit) - an engine issue, small at P006's
-low notes.
+## 52. LEVEL2: exponential, AC coupled, deeper at lower osc 2 Levels (2026-10-25)
+Osc 3 on LEVEL2 multiplies osc 2's level by exp(g): g is a soft minimum (knee 3.94) of the swing - osc 3 inverted and
+AC coupled (27.4 ms), times 4.02 x min(1, (osc 3 Level / 59.1)^2.73) x 77 / (osc 2 Level - 50) nepers - and the
+ceiling, the headroom from osc 2's level up to Level 127's gain, less 0.075 nepers. Measured (findings 2026-10-24/25)
+on osc 2 a saw at 2 kHz and osc 3 at 16 Hz, saw and square, osc 3 Levels 15-127, osc 2 Levels 64/101/127: osc 2's level
+falls straight in log along osc 3's ramp; the boost stops at the headroom; the cut reaches silence; osc 3's frequency
+does not matter (16-131 Hz). Mean level 2.2 -> 1.2 dB rms on those takes; osc 2 at Level 64 is still 2-4 dB loud. It
+replaced a linear law fitted on a square (`1 + K x depth x osc 3`, K 46.4 rising / 86.2 falling, depth
+((L3 + 4.2)/131.2)^3.42, capped 3.0), which only held for P006 while the synced pulse sat in the wrong place (§22).
 
 ## 53. Pan
 The instrument's VCA runs per side on envelope x volume x sqrt(that side's share): Pan 0-127 is a share p = Pan/128
@@ -491,3 +496,12 @@ within 1 dB from Level 16), and a saw at Level 30 through LP12 with the cutoff s
 not the 6 the structure alone gives. HP12's (118 - cutoff)/32 measured as it stands: FUZZ - NONE at cutoff 104
 -13.4 dB on the instrument, -15.5 in the engine, both shut from 110. It replaced the fitted quiet-input loss of
 p2Drive notes §5: through BP12 (the gate open) the drive's output does not fall with a quieter input (p2Drive §7).
+
+## 56. Legato: the return to a held key, glide modes and triggers (2026-10-25)
+Letting go of the sounding key while others are held goes back to the newest of them (it stayed on the released
+note until now). On a return NORM, FNGR and FNOFF glide and OFF and FNON jump; on a legato press NORM, FNGR and FNON
+glide and OFF and FNOFF jump (the manual: FNON glides when legato notes are triggered, FNOFF glides back to the former
+note on release). The envelopes: SNG1/SNG2 start only on a first note, RET1/RET2 also restart on a legato press and
+on a return, RET3 on a legato press but not on a return; SNG2 and RET2 from zero. Measured on the instrument (48 held,
+55 pressed and let go: `tools/legato_session.py`, findings 2026-10-25) - the engine's pitch within 0.1-0.2 semitone
+of the instrument's in every mode, every trigger's restarts in the same places.
