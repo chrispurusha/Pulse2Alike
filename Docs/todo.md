@@ -49,7 +49,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
 
 ## Engine
-- Library sweep leftovers (findings 2026-10-24): P017 PARA-8 starts ~16 dB quiet and lacks a held tail (findings 2026-10-25 'paraphonic plucks'); P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher); P102 cannot be compared (unison at Detune 0 is a random draw), P052 X3 attack (9)
+- Library sweep leftovers (findings 2026-10-24): P010 ~4 dB quiet (attack/sustain/release alike); P017 PARA-8 starts ~16 dB quiet and lacks a held tail (findings 2026-10-25 'paraphonic plucks'); P051 harmonics (osc 2 synced 29 st over osc 3, LFO 2 on osc 2 pitch: the instrument's energy higher); P102 cannot be compared (unison at Detune 0 is a random draw), P052 X3 attack (9)
 - Mod matrix: every target takes the modulation in its own dial steps (p2Plugin notes §51, §54); checked on cutoff, pitch, pan and the envelope rates - spot-check osc levels, volume, LFO 1 speed, PW, resonance against captures
 - Capture to confirm the math sources: M-DELAY's time against amount (16 ms per step?), M-SMOOTH's rate, M-PRODUCT/MIN/MAX on two LFOs
 - Capture to confirm: LFO 2's delay (a wait before it starts?)

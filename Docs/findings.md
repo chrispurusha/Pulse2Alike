@@ -1161,3 +1161,11 @@ Osc 2 at Levels 40 and 80 added (osc 3 a saw at 30/58/90): below Level 101 the i
 higher on the boost (+1.2-1.5 nepers at Level 40) and falls deeper; the engine comes out 1.5-4 dB loud there
 (mean level over all 31 takes 1.6 dB rms). Freeing how the depth grows as osc 2 falls ((127-z)/(L2-z))^q and how much
 headroom the boost gets: 1.9 dB rms, worse at osc 3 Levels 15-30 - not adopted; the form is still missing something.
+
+## 2026-10-25 - PARA-4's second pulse (`192k/para4_osc2/`)
+
+CT: P010 has more of a chorus on the instrument. PARA-4, osc 2 a semitone over osc 1, osc 2 Level 0 and 127: the
+instrument's osc 2 line is -31.7 dB both times, level with osc 1's (-31.5), total -27.2 dBFS - osc 2's Level does
+nothing in PARA-4. The engine silenced it at Level 0 (P010's setting), losing the detuned pair (osc 1 Detune 66,
+osc 2 69) that is the chorus. Fixed, voice gain down 3.5 dB to match (p2Plugin notes §57). P010's score 4.59 -> 4.86
+(a beating pair's harmonics vary with the window); its level is unchanged and was already ~4 dB quiet (open).

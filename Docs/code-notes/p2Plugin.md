@@ -44,7 +44,7 @@ pulse. The square's sign is set so that osc 3 audible at level 127 partly cancel
 pitch, as on the instrument (that line 7 dB down there; the opposite sign raised it 12 dB).
 
 In the unison and paraphonic modes osc 2 and osc 3 are not there (the manual: "you cannot use OSC 2 and OSC 3";
-PARA-4 keeps osc 2's level for each voice's second pulse): osc 3's audio, FB loop and LEVEL2/VCF/DRIVE routings
+PARA-4's second pulse per voice plays at osc 1's Level - osc 2's Level changes nothing there, §57): osc 3's audio, FB loop and LEVEL2/VCF/DRIVE routings
 are off, and osc 2 is silent in unison and PARA-8. The voices reach the mixer through osc 3's input, so osc 1's Level
 takes osc 3's taper there (§36; the voices' gains were measured at full level, where the two agree). Osc 1's Keytrack
 does not hold the pitch in these modes: a unison cluster at Keytrack OFF follows the key, its spread the same (47
@@ -508,3 +508,10 @@ note on release). The envelopes: SNG1/SNG2 start only on a first note, RET1/RET2
 on a return, RET3 on a legato press but not on a return; SNG2 and RET2 from zero. Measured on the instrument (48 held,
 55 pressed and let go: `tools/legato_session.py`, findings 2026-10-25) - the engine's pitch within 0.1-0.2 semitone
 of the instrument's in every mode, every trigger's restarts in the same places.
+
+## 57. PARA-4's second pulse
+Each PARA-4 voice is osc 1's pulse and osc 2's (its own Semitone, Detune, Width and Fade), both at osc 1's Level:
+on the instrument osc 2's Level changes nothing (PARA-4, osc 2 a semitone up: its line -31.7 dB at Level 0 and at
+127, level with osc 1's). The engine had scaled the second pulse by osc 2's Level, so P010 (osc 2 Level 0, Detune
+69 against osc 1's 66) played one pulse a voice where the instrument plays a beating pair - the chorus CT heard.
+PARA-4's voice gain is 0.243 (from 0.363) now that both pulses always sound: -27.0 dBFS against -27.2.

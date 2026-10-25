@@ -48,3 +48,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Drive sounds by ear (2026-10-24, the output gate): P003 now dies away as its filter closes; quiet oscillators with a drive curve on come out quieter, as the instrument's
 - P006 and P015 by ear after the LEVEL2 law and the sync fix (2026-10-25): osc 2's level under osc 3, the synced tone
 - Legato by ear (2026-10-25): letting go of a key with another held goes back to it; FNON glides only up, FNOFF only back; RET1/RET2 retrigger on the way back
+- P010 by ear (2026-10-25): PARA-4 now plays both pulses per note (osc 2 Level 0 no longer silences the second), the chorus CT heard on the instrument

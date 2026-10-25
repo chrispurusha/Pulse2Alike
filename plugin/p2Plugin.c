@@ -167,7 +167,7 @@ enum {
 #define DELAY_LINE_MS            (1024)
 
 #define PARA8_VOICE_LEVEL        (0.263)    // notes §12: one voice against the same pulse played mono, measured
-#define PARA4_VOICE_LEVEL        (0.363)
+#define PARA4_VOICE_LEVEL        (0.243)
 #define NOISE_FLOOR              (1e-5)     // about -100 dB: the analogue floor
 #define NOISE_LEVEL              (1.4)      // notes §34: measured against the saw and in P006
 #define NOISE_REFERENCE_RATE     (768000.0) // notes §34: the internal rate NOISE_LEVEL was measured at
@@ -1382,7 +1382,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                         double pulse = pv->fade * p2_dco_next(&pv->a);
 
                         if (voices == 4) {
-                            pulse += (level2 / fmax(level1, 1e-9)) * pv->fade2 * p2_dco_next(&pv->b);
+                            pulse += pv->fade2 * p2_dco_next(&pv->b);   // notes §12: at osc 1's Level, whatever osc 2's
                         }
                         osc += PULSE_LEVEL * paraGain * level1 * pulse;     // both of a voice's pulses
                     }
