@@ -136,3 +136,36 @@ quiet); TUBE 0 11.4 -> 7.3%, 64 11.9 -> 9.5%, 127 28.1 -> 25.8%. And on the EXT 
 
 Still open: FUZZ's even harmonics grow with Drive on the instrument (H2 -37 -> -24 dB) and not in the model, which is
 symmetric; TUBE's high-Drive waveform. Drive 96 is interpolated between 64 and 127.
+
+## 9. The present structure is at its limit; the next model (planned 2026-10-26, for the week of 11-02)
+**What was tried after §8** (`drive_wave.py <curve> asym|asym2`, on top of the §8 fit, the same 55 takes): a
+negative-ceiling scale per Drive with a bias per Drive, and the same scale with the shelf's direct share per Drive.
+TUBE 10.1% -> 9.7% / 9.9%, FUZZ 6.8% -> 6.9% / 6.8% (harmonics 3.80 -> 2.94-2.98 dB). The biases ran to their bounds:
+the coupling loop around the clipper cancels any constant bias, so a bias cannot move the waveform's duty. None of
+these was adopted; the engine is the §8 fit.
+
+**What the measurements say the circuit does:**
+- **TUBE at Drive 127 is a near-switch.** Averaged cycle at Level 127: the output jumps up as the input triangle passes
+  about +25% of its peak and back as it falls through the same point, high for about 37% of the cycle, the jumps
+  within 1/32 of a cycle; between them each side approaches its level exponentially (the shelf). Its top:bottom ratio
+  falls from 2.4 at Drive 64 to 1.6 at 127 - the bottom clips deeper as Drive rises. The model makes a domed top, a
+  bottom too shallow (2.3) and slower edges: one soft knee driven harder cannot become a comparator with an offset
+  threshold.
+- **FUZZ grows lopsided with Drive** (H2 -37 -> -26 -> -24 dB at Drive 0/64/127, odd harmonics matching), so something
+  inside it moves with Drive, not just a gain in front of it.
+- **The fits keep asking for a ceiling that moves with Drive** (the trims of §5-§8), and the fitted gains are roughly
+  dB-linear in Drive above 16 (FUZZ 0.12-0.15 dB a step) with a floor at Drive 0.
+
+**The plan.** Drive is treated as ONE control, linear in the dial, and everything that varies with Drive is a smooth
+function of it - not a free value per measured Drive:
+1. A gain stage of the kind analogue drive circuits use, an OTA: its gain exponential in the control, and it clips
+   itself (a tanh) with a ceiling that scales with the same control - the moving ceiling the trims stood in for.
+2. Then a fixed clipper per curve: TUBE asymmetric with a threshold offset (so high Drive becomes the near-switch,
+   with the duty set by where that threshold sits on the waveform); FUZZ near-symmetric, with an asymmetry that the
+   stage before it introduces as it is driven harder.
+3. The coupling and shelf of §1 after it, unchanged in form.
+4. Fit with `drive_wave.py` (cycles and harmonics together), a handful of parameters per curve instead of about 20,
+   then check on the 10-26 init-triangle takes, the EXT IN sines and the quiet levels as §8 was; and publish the
+   comparison page again for CT to listen.
+5. If the fit cannot separate a moving bias from a moving gain: capture DC offsets and two tones through EXT IN at
+   Drive 0/32/64/127 (the instrument's rig, design §5).

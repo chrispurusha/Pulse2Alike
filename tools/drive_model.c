@@ -10,7 +10,9 @@ static double knee_clip(double u, double ceiling, double hard) {
     return ceiling * x / pow(1.0 + pow(fabs(x), hard), 1.0 / hard);
 }
 
-void drive_run(const double * x, int n, double rate, const double * shape, double gain, const double * loss, double * out) {
+// negScale: the negative ceiling's scale at this Drive (p2Drive notes §9; 1 = as the shape)
+void drive_run2(const double * x, int n, double rate, const double * shape, double gain, const double * loss, double negScale,
+                double * out) {
     double kc = 1.0 - exp(-2.0 * M_PI * shape[3] / rate), ks = 1.0 - exp(-2.0 * M_PI * shape[5] / rate);
     double kd = 1.0 - exp(-2.0 * M_PI * 5.0 / rate);
     double ka = 1.0 - exp(-1.0 / (0.003 * rate)), kr = 1.0 - exp(-1.0 / (0.060 * rate));
@@ -27,7 +29,7 @@ void drive_run(const double * x, int n, double rate, const double * shape, doubl
             cf = pow(10.0, (loss[2] - (loss[1] * fmax(0.0, loss[0] - level))) / 20.0);
         }
         double u = (v * gain) - coupled + (shape[2] * cf);
-        double c = (u >= 0.0) ? knee_clip(u, shape[0] * cf, shape[6]) : knee_clip(u, shape[1] * cf, shape[7]);
+        double c = (u >= 0.0) ? knee_clip(u, shape[0] * cf, shape[6]) : knee_clip(u, shape[1] * cf * negScale, shape[7]);
 
         coupled += kc * c;
         low     += ks * (c - low);
@@ -36,4 +38,8 @@ void drive_run(const double * x, int n, double rate, const double * shape, doubl
         dc      += kd * o;
         out[i]   = o;
     }
+}
+
+void drive_run(const double * x, int n, double rate, const double * shape, double gain, const double * loss, double * out) {
+    drive_run2(x, n, rate, shape, gain, loss, 1.0, out);
 }

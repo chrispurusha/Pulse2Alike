@@ -22,10 +22,11 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 
 ## Drive
+- NEXT WEEK (CT 2026-10-26): rebuild the drive model as an OTA-style gain stage plus a fixed per-curve clipper, every per-Drive value one smooth function of Drive - plan in p2Drive notes §9; the waveform refit (§8) is in and "sounding much better", not identical
 - The output gate is in (p2Plugin notes §55) and the fitted quiet-input loss is off (p2Drive notes §7); P003 gates off as the instrument's does
-- FUZZ overall (CT 2026-10-25): better but still not close by ear
+- FUZZ overall (CT 2026-10-25): better but still not close by ear; after the §8 waveform refit (10-26) Drive 0/64 close, 127 slightly worse, even harmonics still not growing with Drive
 - FUZZ at quiet Levels (14-20): the instrument still clips and lifts quiet signals (+3.8 dB against NONE at -45 dBFS in, BP12), the engine does not (0) - more gain into the clipper; refit running (`drive_shape.py 2 gated`)
-- TUBE: the gated refit gained nothing (8.2 dB rms, a parameter at its bound) - its structure; a level trend of -3..-5 dB at Levels 14-24 easing to 0 by 80
+- TUBE: the gated refit gained nothing (8.2 dB rms, a parameter at its bound) - its structure (§9: Drive 127 is a near-switch the present chain cannot make); a level trend of -3..-5 dB at Levels 14-24 easing to 0 by 80
 - TUBE on noise (P030: noise 127 through BP12, Drive 127): 10 dB loud, same decay shape - capture noise through TUBE at a few Drives
 - FUZZ at quiet EXT inputs: even harmonics ~15 dB above the instrument's (p2Drive notes §6)
 - Rig: osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
