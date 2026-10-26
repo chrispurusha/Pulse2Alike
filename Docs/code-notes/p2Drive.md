@@ -113,3 +113,26 @@ written to $TMPDIR/p2_drive_shape_<curve>.json and copied into the tables by han
 note to drop the drive's input from -28 to -45 dBFS, the instrument's TUBE stayed +1.3 to +0.2 dB and FUZZ +1.0 to
 +3.8 dB against NONE - no loss, FUZZ if anything compressing upward. So §5's slope is off (`QUIET_LOSS`) and each
 Drive's trim stays. That is also why §5's loss seemed to depend on pitch: it followed the dial, not the input.
+
+## 8. Refitted to the waveform as well as the harmonics (2026-10-26)
+§6's fits scored harmonic levels only, and those ignore phase. On the init-triangle takes of this date
+(`/Volumes/ext-ssd/Captures/Pulse2/192k/drive_init_tri/`: osc 1 TRI at Level 127, LP24 open, Volume 40, C3, NONE and
+both curves at Drive 0/64/127) CT heard what the spectra missed, and the averaged cycles confirm it: the engine's FUZZ
+was the same waveform at every Drive (edges 16.8% of a cycle at 0, 64 and 127; the instrument's 12.9, 11.3, 9.8) and
+5 dB quiet at Drive 0, its flats a straight ramp where the instrument's curve; TUBE's edges were too fast at high Drive
+(3-5% of a cycle against 8-11%) and its flats tilted the wrong way (the instrument's top keeps rising).
+
+`tools/drive_wave.py` fits the same model (`tools/drive_model.c`) to one averaged, aligned cycle per take plus the
+harmonic residual, over every drive_sweep/ take at note 48 with the output gate open (osc Level 24 and up, 55 takes):
+shape, gain per Drive and ceiling trim per Drive. Cycle error over those takes: FUZZ 16.3% of the peak -> 6.8%,
+harmonic rms 4.43 -> 3.80 dB; TUBE 15.2% -> 10.1%, 8.01 -> 7.61 dB. FUZZ's knee came out round (hardness about 1, it
+was 12.5). The bias runs to its bound on both: with the coupling loop around the clipper a constant bias is cancelled,
+so it is not a physical value.
+
+Checked on the init-triangle takes, which the fit did not see - cycle error before -> after: FUZZ 0 38.0 -> 6.9%
+(level -17.9 -> -13.6 dB against the instrument's -13.0), FUZZ 64 17.1 -> 13.1%, FUZZ 127 14.7 -> 16.4% (1 dB
+quiet); TUBE 0 11.4 -> 7.3%, 64 11.9 -> 9.5%, 127 28.1 -> 25.8%. And on the EXT IN sines (not fitted): FUZZ within
+0.4-5.6 dB at -10 dBFS where it was 6.5-10.6, worse at -30 dBFS from Drive 32 up; TUBE better on most.
+
+Still open: FUZZ's even harmonics grow with Drive on the instrument (H2 -37 -> -24 dB) and not in the model, which is
+symmetric; TUBE's high-Drive waveform. Drive 96 is interpolated between 64 and 127.

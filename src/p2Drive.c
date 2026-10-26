@@ -38,17 +38,17 @@ typedef struct {
 
 static const double      kDriveAt[DRIVE_POINTS] = {0.0, 16.0, 32.0, 64.0, 96.0, 127.0};
 
-// notes §6: TUBE fitted to the level sweep's and the EXT IN sines' harmonics, each side its own knee; approximate
-static const tCurveShape kTube                  = {
-    0.0835, 0.0360, 105.2, 0.925, 19119.0, 1.707, 1.955, {-8.37, -0.93, 3.55, 8.16, 10.51, 12.78},
-    {0.495,  0.495, 0.495, 0.495,   0.495,0.495},
-    {3.51,    1.78,  1.38,  0.57,    0.83, 1.08}
+// notes §8: TUBE fitted to the averaged cycle and the harmonics together (drive_wave.py), every take with the gate open
+static const tCurveShape kTube = {
+    0.0742, 0.0319, 98.8, 0.5242, 357.4, 1.821, 4.019, {-6.18, 1.52, 5.52, 10.55, 12.11, 13.62},
+    {0.6000, 0.6000, 0.6000, 0.6000, 0.6000, 0.6000},
+    {5.30, 3.78, 3.07, 2.13, 2.28, 2.43}
 };
-// notes §6: FUZZ fitted to the level sweep's and the EXT IN sines' harmonics, one knee for both sides
-static const tCurveShape kFuzz                  = {
-    0.0697,  0.0676,   388.1,   0.552,   139.3, 12.55, 12.55, {10.97, 16.67, 18.84, 22.27, 29.26, 36.03},
-    {-0.0375,-0.0375, -0.0375, -0.0375, -0.0375, -0.0375},
-    {-5.10,   -2.39,   -0.95,    0.04,    0.74, 1.41}
+// notes §8: FUZZ fitted to the averaged cycle and the harmonics together (drive_wave.py), every take with the gate open
+static const tCurveShape kFuzz = {
+    0.0532, 0.0519, 627.1, 0.6738, 223.6, 0.976, 0.932, {15.60, 22.05, 24.48, 27.86, 32.71, 37.41},
+    {-0.6000, -0.6000, -0.6000, -0.6000, -0.6000, -0.6000},
+    {0.98, 1.18, 1.48, 1.78, 1.78, 1.78}
 };
 
 void p2_drive_init(tP2Drive * d, double rate) {
