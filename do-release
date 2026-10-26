@@ -133,6 +133,21 @@ mkdir -p "$STAGE"
 cp -R "$VST3" "$AU" "$STAGE/"
 cp LICENSE "$STAGE/LICENSE.txt"
 
+# THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory) and the VST3 SDK (MIT - its
+# notice travels with the binary). A release without them stops.
+FTL="SynthLib/ThirdParty/freetype/docs/FTL.TXT"
+VST3_LICENSE="${VST3_SDK:-$HOME/Documents/vst3sdk}/LICENSE.txt"
+
+for f in "$FTL" "$VST3_LICENSE"; do
+    if [[ ! -f $f ]]; then
+        echo "error: $f is missing - a release must carry it (THIRD_PARTY.md)." >&2
+        exit 1
+    fi
+done
+mkdir -p "$STAGE/Licences"
+cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
+cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
+
 cat > "$STAGE/Read Me First.txt" <<EOF
 Pulse2Alike $VERSION_CLEAN
 A reproduction inspired by the Waldorf Pulse 2, as a VST3 and an Audio Unit plug-in for macOS 12 or later
@@ -167,6 +182,10 @@ Help menu says more.
 LICENCE
 
 GPL version 3 - see LICENSE.txt.
+
+Portions of this software are copyright (C) The FreeType Project (www.freetype.org). All rights reserved.
+This software is based in part on the work of the FreeType Team. Its licence, and the VST3 SDK's, are in
+the Licences folder.
 EOF
 
 DMG="$DIST/Pulse2Alike-$VERSION_CLEAN.dmg"
@@ -179,7 +198,7 @@ else
     hdiutil create -volname "$VOL_NAME $VERSION_CLEAN" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
 fi
 echo "==> $DMG"
-echo "    contains: Pulse2Alike.vst3, Pulse2Alike.component, Read Me First.txt, LICENSE.txt"
+echo "    contains: Pulse2Alike.vst3, Pulse2Alike.component, Read Me First.txt, LICENSE.txt, Licences/"
 
 if [[ -n $NEW_TAG ]]; then
     echo
