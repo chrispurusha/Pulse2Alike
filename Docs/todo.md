@@ -17,8 +17,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P006 (findings 2026-10-25 'fade'): its first moment and release are within the instrument's take-to-take spread (LEVEL2's phase); the very tail steps down early (the VCA knee reached ~0.1 s before the instrument's) - CT to recheck by ear; 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
 - Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
 - The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
-- Master Tune on the GLOBAL page: 420-460 Hz, as the instrument's
-- Transpose on the GLOBAL page: +-24 semitones, as the instrument's
 - Polyphonic mode: a full voice (filter, envelopes, VCA) per note - beyond the instrument, whose PARA-8/PARA-4 share one filter and one VCA; design first (voice count, CPU)
 
 ## Drive

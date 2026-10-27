@@ -143,6 +143,8 @@ enum {
     kP2ParamHiss,
     kP2ParamHwLink,
     kP2ParamHwChannel,
+    kP2ParamMasterTune,
+    kP2ParamTranspose,
     kP2ParamCount
 };
 

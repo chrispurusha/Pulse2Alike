@@ -329,15 +329,18 @@ static double bend_semitones(const tP2Plugin * p) {
 
 // notes §9
 static int32_t osc_pitch(const tP2Plugin * p, double note, uint32_t semiId, uint32_t detuneId) {
-    int      which = (semiId == kP2ParamOsc1Semitone) ? eModOsc1Pitch : ((semiId == kP2ParamOsc2Semitone) ? eModOsc2Pitch : eModOsc3Pitch);
-    double   mod   = p->mod[eModPitch] + p->mod[which] + bend_semitones(p);
-    uint32_t keyId = (semiId == kP2ParamOsc1Semitone) ? kP2ParamOsc1Keytrack : ((semiId == kP2ParamOsc2Semitone) ? kP2ParamOsc2Keytrack : UINT32_MAX);
+    int      which  = (semiId == kP2ParamOsc1Semitone) ? eModOsc1Pitch : ((semiId == kP2ParamOsc2Semitone) ? eModOsc2Pitch : eModOsc3Pitch);
+    double   mod    = p->mod[eModPitch] + p->mod[which] + bend_semitones(p);
+    uint32_t keyId  = (semiId == kP2ParamOsc1Semitone) ? kP2ParamOsc1Keytrack : ((semiId == kP2ParamOsc2Semitone) ? kP2ParamOsc2Keytrack : UINT32_MAX);
 
     // notes §31: Keytrack OFF holds the oscillator at note 60, its offsets and modulation still applied
     if ((keyId != UINT32_MAX) && (plain_int(p, keyId) == 0) && (plain_int(p, kP2ParamOsc1Shape) < 4)) {   // not in unison or para
         note = KEYTRACK_OFF_NOTE;
     }
-    return p2_pitch_from_midi_note(note + plain(p, semiId) + mod) + ((plain_int(p, detuneId) - 64) * DETUNE_PITCH_PER_STEP);
+    // notes §59: the instrument's global Master Tune and Transpose
+    double   global = (double)plain_int(p, kP2ParamTranspose) + (12.0 * log2((double)plain_int(p, kP2ParamMasterTune) / 440.0));
+
+    return p2_pitch_from_midi_note(note + global + plain(p, semiId) + mod) + ((plain_int(p, detuneId) - 64) * DETUNE_PITCH_PER_STEP);
 }
 
 static void set_unison(tP2Plugin * p);
@@ -1488,7 +1491,7 @@ static void preset_change(tP2Plugin * p, int number) {
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         if (  (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamHwLink)
-           || (id == kP2ParamHwChannel) || (id == kP2ParamMaster)
+           || (id == kP2ParamHwChannel) || (id == kP2ParamMaster) || (id == kP2ParamMasterTune) || (id == kP2ParamTranspose)
            || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
             continue;
         }
@@ -1594,7 +1597,7 @@ static void p2_panel_init(void) {
 // What a sound carries: everything but the plug-in's own settings and the program change's two
 static bool sound_param(uint32_t id) {
     return (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamHwLink)
-           && (id != kP2ParamHwChannel) && (id != kP2ParamMaster)
+           && (id != kP2ParamHwChannel) && (id != kP2ParamMaster) && (id != kP2ParamMasterTune) && (id != kP2ParamTranspose)
            && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));
 }
 

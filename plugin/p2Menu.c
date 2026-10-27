@@ -220,9 +220,11 @@ static void action_about(int index) {
     show_alert("About", synthlib_about_text("Pulse2Alike"));
 }
 
-// notes §2: one alert per topic; each stays within the alert's 32 wrapped lines
-static const char *const kHelpTitles[] = {"The Panel", "Sounds and Program Changes", "Linking a Pulse 2", "Plug-in Settings"};
-static const char *const kHelpTexts[]  = {
+// notes §2: one alert per topic; each about 11 wrapped lines at most, or it runs off the 320-high panel
+#define HELP_TOPICS    (5)
+
+static const char *const kHelpTitles[HELP_TOPICS] = {"The Panel", "Sounds and Program Changes", "Linking a Pulse 2", "Plug-in Settings", "Anomalies"};
+static const char *const kHelpTexts[HELP_TOPICS]  = {
     "The pages across the top hold every control of the instrument; GLOBAL has the performance and plug-in settings.\n\n"
     "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the pointer "
     "round the dial, Vertical and Horizontal count its movement.\n\n"
@@ -249,14 +251,19 @@ static const char *const kHelpTexts[]  = {
     "nothing is stored to its memory.\n\n"
     "Link works while the plug-in's window is open.",
 
-    "Oversample runs the engine at 1, 2 or 4 times the host's rate (4 is the default and the cleanest; lower "
-    "saves processing). Changing it clicks once.\n\n"
-    "Anomalies keeps the instrument's own quirks: modulation in 1 ms steps, and the drive's FX curve silent. "
-    "Off, everything moves smoothly.\n\n"
-    "Hiss adds the instrument's faint hiss while a note sounds.\n\n"
-    "None of these is saved with a sound.\n\n"
-    "For a diagnostic log: in Terminal, touch /tmp/pulse2alike-log, then reload the plug-in; the log is "
-    "/tmp/pulse2alike.log.",
+    "Oversample: 1, 2 or 4 times the host's rate (2 by default, 4 the cleanest). Changing it clicks once.\n\n"
+    "Hiss (off by default): the instrument's faint hiss while a note sounds, about 74 dB under it - its air on "
+    "dark sounds.\n\n"
+    "Tune (420-460 Hz) and Transpose (+-24) shift every sound. A new instance starts at 440 and 0.\n\n"
+    "None of these, nor Anomalies, is saved with a sound. Diagnostic log: touch /tmp/pulse2alike-log, reload "
+    "the plug-in, read /tmp/pulse2alike.log.",
+
+    "Anomalies (on by default) keeps the quirks of the Pulse 2 this was measured on:\n\n"
+    "- envelopes and modulation move the filter in softened 1 ms steps, as the instrument's do\n"
+    "- the drive's FX curve is silent\n"
+    "- a chord kept by one HOLD arpeggio sound starts again in the next HOLD sound\n\n"
+    "Off gives the idealised instrument: everything moves smoothly, FX drives like NONE, and no chord carries "
+    "over.",
 };
 
 static void action_help(int index) {
@@ -266,11 +273,11 @@ static void action_help(int index) {
 }
 
 static void open_help_menu(tCoord anchor) {
-    static tMenuItem items[7];
-    static char      labels[4][48];
+    static tMenuItem items[HELP_TOPICS + 2];
+    static char      labels[HELP_TOPICS][48];
     int              i = 0;
 
-    for (int t = 0; t < 4; t++) {
+    for (int t = 0; t < HELP_TOPICS; t++) {
         snprintf(labels[t], sizeof(labels[t]), "%s...", kHelpTitles[t]);
         items[i++] = (tMenuItem){
             labels[t], ITEM, action_help, (uint32_t)t, NULL, 0, 0.0, NULL

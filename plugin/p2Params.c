@@ -189,6 +189,8 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamHiss,            "Hiss",                 "Hiss",      eSynthLibUnitIndexed,     0.0,   1.0, 0.000000,   1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamHwLink,          "Link to Pulse 2",      "Link",      eSynthLibUnitIndexed,     0.0,   1.0, 0.000000,   1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamHwChannel,       "Pulse 2 MIDI Channel", "Channel",   eSynthLibUnitGeneric,     1.0,  16.0, 0.000000,  15, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamMasterTune,      "Master Tune",          "Tune",      eSynthLibUnitGeneric,   420.0, 460.0, 0.500000,  40, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamTranspose,       "Transpose",            "Transp",    eSynthLibUnitGeneric,   -24.0,  24.0, 0.500000,  48, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 // The instrument's sound bytes, in order: which parameter each one is, and the raw value of its lowest step.
@@ -557,10 +559,12 @@ static const tP2Control kSection23[]     = {
     {kP2ParamArpAccent, "Accent", eP2ControlChoice,  24,  0.0, kNamesArpAccent},
 };
 static const tP2Control kSection24[]     = {
-    {kP2ParamBendUp,   "Bend +", eP2ControlDial,  36, 0.0, NULL},
-    {kP2ParamBendDown, "Bend -", eP2ControlDial,  36, 0.0, NULL},
-    {kP2ParamOsc1Fade, "Fade 1", eP2ControlDial, 127, 0.0, NULL},
-    {kP2ParamOsc2Fade, "Fade 2", eP2ControlDial, 127, 0.0, NULL},
+    {kP2ParamBendUp,     "Bend +", eP2ControlDial,  36,   0.0, NULL},
+    {kP2ParamBendDown,   "Bend -", eP2ControlDial,  36,   0.0, NULL},
+    {kP2ParamOsc1Fade,   "Fade 1", eP2ControlDial, 127,   0.0, NULL},
+    {kP2ParamOsc2Fade,   "Fade 2", eP2ControlDial, 127,   0.0, NULL},
+    {kP2ParamMasterTune, "Tune",   eP2ControlDial,  40, 420.0, NULL},
+    {kP2ParamTranspose,  "Transp", eP2ControlDial,  48, -24.0, NULL},
 };
 static const tP2Control kSection25[]     = {
     {kP2ParamOversample, "OvrSmp",    eP2ControlChoice,  2, 0.0, kNamesOversample},
@@ -607,7 +611,7 @@ static const tP2Section kPage6Sections[] = {
     {"TIMING",      {0.65, 0.65, 0.65}, kSection23, 5},
 };
 static const tP2Section kPage7Sections[] = {
-    {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 4},
+    {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 6},
     {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 5},
 };
 

@@ -39,16 +39,16 @@ typedef struct {
 static const double      kDriveAt[DRIVE_POINTS] = {0.0, 16.0, 32.0, 64.0, 96.0, 127.0};
 
 // notes §8: TUBE fitted to the averaged cycle and the harmonics together (drive_wave.py), every take with the gate open
-static const tCurveShape kTube = {
-    0.0742, 0.0319, 98.8, 0.5242, 357.4, 1.821, 4.019, {-6.18, 1.52, 5.52, 10.55, 12.11, 13.62},
-    {0.6000, 0.6000, 0.6000, 0.6000, 0.6000, 0.6000},
-    {5.30, 3.78, 3.07, 2.13, 2.28, 2.43}
+static const tCurveShape kTube                  = {
+    0.0742, 0.0319,   98.8, 0.5242,  357.4, 1.821, 4.019, {-6.18, 1.52, 5.52, 10.55, 12.11, 13.62},
+    {0.6000,0.6000, 0.6000, 0.6000, 0.6000,0.6000},
+    {5.30,    3.78,   3.07,   2.13,   2.28, 2.43}
 };
 // notes §8: FUZZ fitted to the averaged cycle and the harmonics together (drive_wave.py), every take with the gate open
-static const tCurveShape kFuzz = {
-    0.0532, 0.0519, 627.1, 0.6738, 223.6, 0.976, 0.932, {15.60, 22.05, 24.48, 27.86, 32.71, 37.41},
-    {-0.6000, -0.6000, -0.6000, -0.6000, -0.6000, -0.6000},
-    {0.98, 1.18, 1.48, 1.78, 1.78, 1.78}
+static const tCurveShape kFuzz                  = {
+    0.0532,  0.0519,   627.1,  0.6738,   223.6, 0.976, 0.932, {15.60, 22.05, 24.48, 27.86, 32.71, 37.41},
+    {-0.6000,-0.6000, -0.6000, -0.6000, -0.6000, -0.6000},
+    {0.98,     1.18,    1.48,    1.78,    1.78, 1.78}
 };
 
 void p2_drive_init(tP2Drive * d, double rate) {

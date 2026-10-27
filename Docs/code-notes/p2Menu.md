@@ -16,7 +16,8 @@ panel. It is rebuilt each time the File menu opens, so a save or a reload shows 
 file in the library is greyed. The action reads the sound number from the item's param.
 
 ## 2. Help
-Four topics, each one SynthLib alert (word-wrapped, at most 32 lines - a longer text is cut, not scrolled): the
+Five topics (Anomalies has its own since 2026-10-26), each one SynthLib alert (word-wrapped; the alert takes up to
+32 lines, but in the 320-high panel about 11 fit with the title and OK button - a longer text runs off it): the
 panel, sounds and program changes, linking a Pulse 2, and the plug-in's own settings. They describe what the
 plug-in does now; the sounds topic changes with the presets file (design §7).
 

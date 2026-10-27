@@ -533,3 +533,11 @@ note 48, widths 20/64/110 alike) 0.4 dB more at 2 kHz, 1.3 at 4 kHz, 2.7 at 8 kH
 the mixer. The sum of the voices goes through a one-pole at 9 kHz (PARA_LOWPASS_HZ); with the pulses' edge (p2Dco
 notes §11) PARA-8's top octave lands within 0.7 dB of its middle, as the instrument's (2026-10-25). P010, averaged over
 three 6 s takes: 4 and 8 kHz +2.3/+1.5 dB against an overall +1.1 (they were +3.0/+4.0).
+
+## 59. Master Tune and Transpose (2026-10-26)
+The instrument's two global pitch settings, on the GLOBAL page: Master Tune 420-460 Hz in 1 Hz steps (440 the
+default) and Transpose -24..+24 semitones. Both shift every oscillator, 12 log2(tune/440) + transpose semitones,
+added to the note before the oscillators' own offsets and modulation. They are the plug-in's settings, not a
+sound's: a preset or a sound dump leaves them alone (both exclusion lists), as on the instrument. Both are read rounded to their steps (whole hertz, whole semitones), so a host's
+automation between steps cannot leave the pitch between them.
+
