@@ -25,13 +25,15 @@ the lower row instead of scrolling.
 ## 4. Presets: Prev, Next, the label
 `< Prev` and `Next >` step through P001-P500 and wrap at both ends, as the instrument's own buttons do; from a sound
 opened as a numbered file (`004 Name.syx`) they step from its number; from any other (Init, an unnumbered file)
-Next goes to P001 and Prev to P500. `Load...` opens SynthLib's in-window file browser
-for a single `.syx`, starting in the current file's folder or `iCloud Drive/Patches/Pulse2`. The browser is modal
-and drawn last; while it is open every press, release, hover and scroll is its own.
+Next goes to P001 and Prev to P500. `Load...` opens the Load Preset browser, as Presets > Load Preset... does.
+A single `.syx` is opened from the File menu, in SynthLib's in-window file browser, starting in the current file's
+folder or `iCloud Drive/Patches/Pulse2`. Both browsers are modal and drawn last; while one is open every press,
+release, hover and scroll is its own.
 
 After the name: the preset (`P012`, grey; `P012*`, white, once edited - p2Plugin notes §48), or the file's name
-when the sound came from a file. Load Preset... and Store Preset to... choose the slot in SynthLib's bank browser,
-as SynthEdit and G2Alike choose a bank location: 500 named rows as banks 1-5 of 100, sortable A-Z. A store is
+when the sound came from a file, cut to what fits before the panel's right margin. Load Preset... and Store Preset to... choose the slot in SynthLib's bank browser,
+as SynthEdit and G2Alike choose a bank location: 500 named rows numbered 1-500, sortable A-Z. They go in unbanked (bank 0, SynthLib bankBrowser.cpp notes §9);
+the instrument's banks of 100 matter only to program changes (p2Patch notes §3). A store is
 always confirmed, naming what the slot holds now; so is Revert.
 
 ## 5. Menus and popups
@@ -47,13 +49,16 @@ Return or a click elsewhere keeps it, Escape drops it. Typing is upper-cased and
 is the dump's name field and how the instrument's own sounds are named. The name goes to a file only at the
 next save. The file the sound came from is shown greyed after it.
 
+It is drawn as a button, grey with black text like the tabs, wide enough for 14 W's (the widest capital), the
+longest name the dump can hold; it lightens while being edited.
+
 ## 7. The arpeggiator's steps
 Below the ARP page's dials, the 16 steps, each three cells: its Event and Time (lists) and Glide (a toggle). A
 step past Pattern Length is greyed. Each step is one parameter, the instrument's own byte (p2Arp notes §2), so
 an edit changes only the bits it shows.
 
 ## 8. Link
-The Link HW button, left of Prev, shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
+The Link HW button, in the title row above the AMP tab (left of Prev), shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
 plug-in's, through the host's `send`; the panel only reports a failure. Amber, reading "Link busy", while Link is on
 but another instance owns the instrument (p2Plugin notes §49).
 
