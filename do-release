@@ -135,7 +135,7 @@ cp LICENSE "$STAGE/LICENSE.txt"
 
 # THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory) and the VST3 SDK (MIT - its
 # notice travels with the binary). A release without them stops.
-FTL="SynthLib/ThirdParty/freetype/docs/FTL.TXT"
+FTL="../SynthLib/ThirdParty/freetype/docs/FTL.TXT"
 VST3_LICENSE="${VST3_SDK:-$HOME/Documents/vst3sdk}/LICENSE.txt"
 
 for f in "$FTL" "$VST3_LICENSE"; do

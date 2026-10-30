@@ -2,7 +2,7 @@
 # Builds tools/p2render: the plug-in's engine without its editor, for offline renders.
 set -e
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-SL="$HERE/SynthLib"
+SL="${SYNTHLIB_DIR:-$HERE/../SynthLib}"
 # SynthLib's log apart, so -Werror covers only this project's own files
 OBJ="$(mktemp -d)"
 trap 'rm -rf "$OBJ"' EXIT

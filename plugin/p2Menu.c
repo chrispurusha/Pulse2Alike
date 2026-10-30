@@ -217,6 +217,7 @@ static void open_controls_menu(tCoord anchor) {
 
 static void action_about(int index) {
     (void)index;
+    SYNTHLIB_APP_INIT();
     show_alert("About", synthlib_about_text("Pulse2Alike"));
 }
 

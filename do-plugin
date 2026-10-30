@@ -15,7 +15,7 @@ set -e
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SDK="${VST3_SDK:-$HOME/Documents/vst3sdk}"
-SL="${SYNTHLIB_DIR:-$HERE/SynthLib}"
+SL="${SYNTHLIB_DIR:-$HERE/../SynthLib}"
 
 FORMATS=()
 INSTALL=1
@@ -111,7 +111,8 @@ SOURCES=(
     "$HERE/plugin/p2Prefs.c"
     "$SL/src/synthlibMidi.c"
     "$HERE/plugin/p2Plugin.c"
-    "$SL/plugin/pluginStubs.c"
+    "$SL/plugin/synthlibPluginRegistry.c"
+    "$SL/src/synthlibGlobals.c"
     "$SL/plugin/synthlibPluginState.c"
 
     # SynthLib, and only the parts a plug-in panel needs (the list MidiSyncTool's panel uses).
@@ -183,8 +184,7 @@ own_werror() {
 
 # SYNTHLIB_PLUGIN_BUILD is SynthLib's "this is a plug-in, there is no GLFW" - G2_VST3_BUILD until the
 # plug-ins gained a second format. An ARRAY, so the version define keeps its own quotes.
-DEFS=(-DSYNTHLIB_PLUGIN_BUILD=1 -DP2A_VERSION_STRING="\"$P2A_VERSION\"" -DP2A_AU_VERSION=$AU_VERSION
-      -DSYNTHLIB_PANEL_VIEW_CLASS=Pulse2AlikePanelView)
+DEFS=(-DSYNTHLIB_PLUGIN_BUILD=1 -DP2A_VERSION_STRING="\"$P2A_VERSION\"" -DSYNTHLIB_VERSION_STRING="\"$P2A_VERSION\"" -DP2A_AU_VERSION=$AU_VERSION)
 
 # glfw for its HEADERS ONLY - SynthLib's key and mouse constants come from them. freetype is real: the panel
 # draws its text with it, linked statically below.
@@ -354,9 +354,16 @@ build_au() {
     for src in "${AU_OBJC_SOURCES[@]}"; do
         local obj="$OBJDIR/au_$(basename "${src%.*}").om"
         clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
-              -DSYNTHLIB_AU_VIEW_CLASS=$AU_VIEW_CLASS -x objective-c -c "$src" -o "$obj"
+              -x objective-c -c "$src" -o "$obj"
         objects+=("$obj")
     done
+
+    # The one class that must be compiled into the product - see synthlibAuViewFactory.h
+    local factory="$OBJDIR/auViewFactory.m"
+    print "#import \"synthlibAuViewFactory.h\"\nSYNTHLIB_AU_VIEW_FACTORY($AU_VIEW_CLASS)" > "$factory"
+    clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" "${DEFS[@]}" "${INCLUDES[@]}" \
+              -x objective-c -c "$factory" -o "$OBJDIR/au_auViewFactory.om"
+    objects+=("$OBJDIR/au_auViewFactory.om")
 
     rm -rf "$out"
     mkdir -p "$out/Contents/MacOS"
