@@ -1,6 +1,0 @@
-#!/bin/zsh
-# Builds and runs tools/dcocheck against src/p2Dco.c.
-set -e
-HERE="$(cd "$(dirname "$0")/.." && pwd)"
-clang -O2 -Wall -Wextra -Werror -I"$HERE/src" "$HERE/tools/dcocheck.c" "$HERE/src/p2Dco.c" -o "$HERE/tools/dcocheck"
-"$HERE/tools/dcocheck"
